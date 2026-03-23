@@ -2,7 +2,6 @@
 
 **EECE5155 — Wireless Sensor Networks and IoT — Spring 2026**
 
-Browser only. No install, no hardware, no cloud account.
 
 ## How to use
 
