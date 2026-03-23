@@ -46,6 +46,53 @@ Add a photoresistor (LDR) and publish structured JSON with metadata (device_id, 
 - Click the LDR in the simulator to change light levels
 - Verify the JSON parses correctly in HiveMQ client
 
+## Challenge: Adapt to YOUR MVP Project (`challenge/`)
+
+**Due: Wednesday March 25, end of day.**
+
+You have a starter sketch with WiFi + MQTT already working. Your job: wire up the sensor closest to your BOM, read it, build a JSON payload, and publish it.
+
+### Which Wokwi sensor should I use?
+
+| Your project | BOM sensor | Use in Wokwi | Notes |
+|---|---|---|---|
+| Hubert — Beacon Bin | PIR (HC-SR501) | **PIR** | Digital pin, HIGH on motion |
+| Timothy — Smart Watering | SEN0193 (soil moisture) + DHT22 | **Potentiometer** (soil) + **DHT22** | Map pot 0–4095 → moisture 0–100% |
+| Sergey — Crop Cop | HC-SR501 + OV7670 + AM2302 | **PIR** + **DHT22** | Camera has no Wokwi equivalent, skip it |
+| Aiisha — Acoustic Monitor | MAX9814 (microphone) | **Potentiometer** | Map pot 0–4095 → dB 30–120 |
+| William — TrekTrak | VL53L7CX (ToF) | **HC-SR04** (ultrasonic) | Both measure distance, similar logic |
+| Will — MotionSense | MPU-6050 (IMU) | **MPU6050** | Direct match, I2C on GPIO 21/22 |
+
+### What to do
+
+1. Open the `challenge/sketch.ino` in Wokwi
+2. Complete **TODO 1–6** in the code:
+   - Add your sensor library and pin definitions
+   - Create the sensor object
+   - Read the sensor in `publishSensorData()`
+   - Handle errors (what if the sensor returns NaN or -1?)
+   - Build a JSON string with `device_id`, `timestamp`, and your readings with units
+   - Set your MQTT topic to `eece5155/<your_name>/<project>/data`
+3. Add your sensor component to the board (click **+** in Wokwi)
+4. Wire it and test
+5. Verify messages arrive at [HiveMQ WebSocket Client](https://www.hivemq.com/demos/websocket-client/)
+
+### Deliverable
+
+Post on Canvas:
+1. Your **Wokwi project link** (save the project first)
+2. A **screenshot** of HiveMQ receiving at least 3 of your JSON messages
+
+### Grading
+
+| Criteria | Points |
+|---|---|
+| Sensor reads correctly in Serial Monitor | 30 |
+| JSON has device_id, timestamp, sensor value + unit | 30 |
+| MQTT topic follows the format `eece5155/<name>/<project>/data` | 10 |
+| Error handling (code checks for invalid readings) | 20 |
+| Wokwi link + HiveMQ screenshot posted on Canvas | 10 |
+
 ## Wokwi Resources
 
 - Docs: https://docs.wokwi.com/
@@ -53,8 +100,4 @@ Add a photoresistor (LDR) and publish structured JSON with metadata (device_id, 
 - WiFi simulation: https://docs.wokwi.com/guides/esp32-wifi
 - Component reference: https://docs.wokwi.com/parts/wokwi-dht22
 
-## Adapt to your project
-
-Wokwi supports: DHT22, DS18B20, HC-SR04, PIR, potentiometer, LDR, MPU6050, servo, LCD, NeoPixel, and more.
-
-If your BOM sensor is not available in Wokwi, use a potentiometer as an analog proxy and map 0–4095 to your sensor's range.
+If your sensor has no Wokwi equivalent, use a potentiometer as analog proxy and map 0–4095 to your sensor's output range.
