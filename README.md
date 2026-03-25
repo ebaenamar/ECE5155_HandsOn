@@ -26,9 +26,30 @@ For exercises 2 and 3: replace `YOUR_NAME` in the MQTT topic before running.
 
 Verify your MQTT messages at [HiveMQ WebSocket Client](https://www.hivemq.com/demos/websocket-client/) — subscribe to `eece5155/YOUR_NAME/sensors`.
 
-## Session 2: Node-RED + MQTT (Mar 25)
+## Session 2: Node-RED IoT Automation & Dashboards (Mar 25)
 
-Coming soon.
+📁 `handson2_nodered/`
+
+| Exercise | What you build | Nodes used |
+|----------|---------------|------------|
+| 1 | Subscribe to MQTT and see data in debug panel | `mqtt in` → `debug` |
+| 2 | Parse JSON + live dashboard with gauges and chart | `json` → `function` → `ui-gauge` / `ui-chart` |
+| 3 | Threshold alerts with conditional logic | `switch` → `function` → `ui-notification` |
+
+### Quick start
+
+1. Install Node-RED: `npm install -g --unsafe-perm node-red` (requires Node.js ≥ 18)
+2. Run `node-red` and open [http://localhost:1880](http://localhost:1880)
+3. Install dashboard nodes: Menu → Manage Palette → Install → `@flowfuse/node-red-dashboard`
+4. Start your data source (Wokwi from Session 1, or `python mqtt_simulator.py`)
+
+Replace `YOUR_NAME` in `mqtt_simulator.py` before running.
+
+### Deliverables
+
+1. Export your flow as `nodered_flow.json` (Menu → Export → Download)
+2. Screenshot your dashboard with live data
+3. Post both on Canvas
 
 ## Session 3: IoT Dataset Analysis (Mar 26)
 
