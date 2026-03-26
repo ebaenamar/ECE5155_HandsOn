@@ -10,8 +10,6 @@
 *.fdb_latexmk
 *.pdf
 *.gz
-*.tex
-*.md
 !README.md
 !handson*/README.md
 *.bbl

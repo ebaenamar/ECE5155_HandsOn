@@ -53,4 +53,30 @@ Replace `YOUR_NAME` in `mqtt_simulator.py` before running.
 
 ## Session 3: IoT Dataset Analysis (Mar 26)
 
-Coming soon.
+📁 `handson3_dataset/`
+
+| Exercise | What you build | Key skill |
+|----------|---------------|-----------|
+| 1 | Data quality audit: missing values, outliers, sensor failures | Diagnose deployment health from data |
+| 2 | Sensor comparison: correlation, offset, drift | Validate sensor accuracy |
+| 3 | Anomaly detection: fixed thresholds vs rolling z-score | Detect real events vs sensor errors |
+
+### Quick start
+
+```bash
+pip install pandas matplotlib jupyter
+curl -L -o data.txt.gz "https://db.csail.mit.edu/labdata/data.txt.gz"
+gunzip data.txt.gz
+jupyter notebook dataset_starter.ipynb
+```
+
+### Rules
+
+Use **any AI tool** to generate code. **You** write the interpretation in the LaTeX report. Grading: 40% code · 60% interpretation.
+
+### Deliverables
+
+1. LaTeX report (PDF) — use `dataset_report_template.tex`
+2. Three plots embedded in report: `data_quality.png`, `sensor_comparison.png`, `anomalies.png`
+3. Jupyter notebook (.ipynb) with your code
+4. Submit all on Canvas

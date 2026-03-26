@@ -1,0 +1,183 @@
+% EECE5155 — Hands-On 3: IoT Dataset Analysis Report
+% Template — fill in the sections marked YOUR_TEXT
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}  % Remove [draft] once you add your PNG files
+\graphicspath{{./}}    % Place your PNGs in the same folder as this .tex
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+
+\definecolor{nured}{RGB}{200,16,46}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small EECE5155 — Hands-On 3}
+\rhead{\small IoT Dataset Analysis Report}
+\cfoot{\thepage}
+
+\title{%
+  \textbf{Hands-On 3: IoT Dataset Analysis Report}\\[0.3cm]
+  \large EECE5155 — Wireless Sensor Networks and IoT\\
+  Northeastern University
+}
+\author{
+  YOUR\_NAME\\
+  NUID: YOUR\_NUID
+}
+\date{March 26, 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+%==============================================================================
+\section{Exercise 1: Data Quality Audit}
+%==============================================================================
+
+\subsection{Results}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Total readings loaded:} YOUR\_TEXT (e.g., 2,303,290 after filtering to motes 1--54)
+  \item \textbf{Sensors with fewest readings:} YOUR\_TEXT (list sensor IDs and counts)
+  \item \textbf{Missing values:} YOUR\_TEXT (temperature: X missing, humidity: Y missing)
+  \item \textbf{Outlier count:} YOUR\_TEXT (readings $<$0\textdegree{}C: X, readings $>$40\textdegree{}C: Y)
+\end{itemize}
+
+\subsection{Interpretation}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Which sensors died early and why?}\\
+  YOUR\_TEXT (identify specific mote IDs, propose physical causes: battery, connectivity, damage)
+
+  \item \textbf{Are missing values random or clustered? What does the pattern mean?}\\
+  YOUR\_TEXT (random = radio interference; clustered = sensor/network failure. Which did you observe?)
+
+  \item \textbf{Temperature outliers in an indoor lab — what caused them?}\\
+  YOUR\_TEXT (explain why readings $>$40\textdegree{}C appear in a 20--22\textdegree{}C lab. Sensor error mechanism?)
+
+  \item \textbf{When did Mote 49 stop reporting? How can you tell?}\\
+  YOUR\_TEXT (identify the date/time from your plot and explain the evidence)
+\end{enumerate}
+
+\subsection{Plot}
+
+\begin{center}
+  \IfFileExists{data_quality.png}{%
+    \includegraphics[width=0.9\textwidth]{data_quality.png}%
+  }{\fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}\textbf{data\_quality.png}\\Place your plot here\vspace{2cm}}}}
+\end{center}
+
+%==============================================================================
+\section{Exercise 2: Sensor Comparison}
+%==============================================================================
+
+\subsection{Results}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Sensors compared:} YOUR\_TEXT (e.g., motes 1, 2, 33, 34)
+  \item \textbf{Correlation matrix:}
+\end{itemize}
+
+% Replace with your actual values
+\begin{center}
+\begin{tabular}{lcccc}
+  \toprule
+  & \textbf{Mote 1} & \textbf{Mote 2} & \textbf{Mote 33} & \textbf{Mote 34} \\
+  \midrule
+  Mote 1  & 1.000 & YOUR & YOUR & YOUR \\
+  Mote 2  & YOUR  & 1.000 & YOUR & YOUR \\
+  Mote 33 & YOUR  & YOUR  & 1.000 & YOUR \\
+  Mote 34 & YOUR  & YOUR  & YOUR  & 1.000 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Max spread:} YOUR\_TEXT\textdegree{}C \quad
+        \textbf{Median spread:} YOUR\_TEXT\textdegree{}C
+\end{itemize}
+
+\subsection{Interpretation}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Do the sensors track each other? Where do they diverge?}\\
+  YOUR\_TEXT
+
+  \item \textbf{If one sensor reads 1.5\textdegree{}C higher consistently, give two physical explanations.}\\
+  YOUR\_TEXT (think: proximity to heat source, calibration offset, airflow differences)
+
+  \item \textbf{Your PES says $\pm$0.5\textdegree{}C. Is that achievable? How would you verify?}\\
+  YOUR\_TEXT (reference what you observed in the data; what ground truth would you need?)
+
+  \item \textbf{How would you decide which sensor to trust if they disagree?}\\
+  YOUR\_TEXT
+\end{enumerate}
+
+\subsection{Plot}
+
+\begin{center}
+  \IfFileExists{sensor_comparison.png}{%
+    \includegraphics[width=0.9\textwidth]{sensor_comparison.png}%
+  }{\fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}\textbf{sensor\_comparison.png}\\Place your plot here\vspace{2cm}}}}
+\end{center}
+
+%==============================================================================
+\section{Exercise 3: Anomaly Detection}
+%==============================================================================
+
+\subsection{Results}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Fixed threshold anomalies} (outside 15--35\textdegree{}C): YOUR\_TEXT
+  \item \textbf{Statistical anomalies} ($|z| > 3$): YOUR\_TEXT
+  \item \textbf{Detected by both methods:} YOUR\_TEXT
+\end{itemize}
+
+\subsection{Interpretation}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Why are the counts so different between the two methods?}\\
+  YOUR\_TEXT
+
+  \item \textbf{Example: anomaly caught by fixed threshold but NOT by z-score. Why?}\\
+  YOUR\_TEXT (describe the specific case and explain the detection logic)
+
+  \item \textbf{Example: anomaly caught by z-score but NOT by fixed threshold. Why?}\\
+  YOUR\_TEXT
+
+  \item \textbf{For your MVP: which method for safety alerts? Which for drift detection? Why?}\\
+  YOUR\_TEXT (connect to your specific project and PES requirements)
+\end{enumerate}
+
+\subsection{Plot}
+
+\begin{center}
+  \IfFileExists{anomalies.png}{%
+    \includegraphics[width=0.9\textwidth]{anomalies.png}%
+  }{\fbox{\parbox{0.8\textwidth}{\centering\vspace{2cm}\textbf{anomalies.png}\\Place your plot here\vspace{2cm}}}}
+\end{center}
+
+%==============================================================================
+\section{Connection to MVP}
+%==============================================================================
+
+In 3--5 sentences, explain how today's analysis applies to your specific project:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{What data quality issues do you expect with your own sensors?}\\
+  YOUR\_TEXT
+
+  \item \textbf{What anomaly detection method will you implement in your pipeline?}\\
+  YOUR\_TEXT
+
+  \item \textbf{What will your ``Data Quality'' section in the final report look like?}\\
+  YOUR\_TEXT
+\end{itemize}
+
+\end{document}

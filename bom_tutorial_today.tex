@@ -1,0 +1,402 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\definecolor{nured}{RGB}{200,16,46}
+\definecolor{scalebg}{RGB}{220,255,220}
+\definecolor{scaleborder}{RGB}{40,167,69}
+\definecolor{warnbg}{RGB}{255,243,224}
+\definecolor{warnborder}{RGB}{255,152,0}
+
+\title[BOM \& Project Viability]{MVP Hardware Spec: Demonstrating Viability}
+\subtitle{From PES to Scalable Implementation}
+\author{Eduardo Baena}
+\date{March 19, 2026}
+\institute{Northeastern University\\EECE5155: Wireless Sensor Networks and IoT}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+%==============================================================================
+\section{What This Deliverable Is Really About}
+%==============================================================================
+
+\begin{frame}[shrink=5]{This Is Not Just a Shopping List}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{In the AI era (2026):}
+        
+        \vspace{0.15cm}
+        AI can suggest components.\\But \textbf{only you} can:
+        \begin{itemize}
+            \item Understand your specific context
+            \item Ask the right questions
+            \item Verify AI claims in datasheets
+            \item Estimate real-world constraints
+        \end{itemize}
+        
+        \vspace{0.15cm}
+        \textbf{What employers see:}
+        \begin{enumerate}
+            \item Context-driven component selection
+            \item Engineering judgment on tradeoffs
+            \item Data-verified decisions
+            \item Viable \& scalable solutions
+        \end{enumerate}
+        
+        \column{0.5\textwidth}
+        \begin{alertblock}{The Real Question}
+            \centering
+            \textbf{``If I gave you \$100K to deploy 1000 units, would it work?''}
+            
+            \vspace{0.1cm}
+            Your BOM + PES answers this.
+        \end{alertblock}
+        
+        \vspace{0.15cm}
+        \begin{exampleblock}{Your Value}
+            \small
+            AI = brainstorming tool\\You = engineer who validates
+            \begin{itemize}
+                \item Deep context understanding
+                \item Practical constraints (lead times, pricing)
+                \item Verified specs, not hallucinations
+            \end{itemize}
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[shrink=10]{Viability: Does It Actually Work?}
+    \textbf{Your MVP must demonstrate technical feasibility:}
+    
+    \vspace{0.15cm}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Hardware viability:}
+        \begin{itemize}
+            \item Sensor meets accuracy (cite datasheet)
+            \item MCU has enough memory (calculate)
+            \item Power budget is realistic (measure)
+            \item Communication range sufficient (link budget)
+        \end{itemize}
+        
+        \vspace{0.1cm}
+        \textbf{BAD (AI-generated):}
+        \begin{itemize}
+            \item ``DHT22'' --- no context
+            \item ``ESP32'' --- no justification
+        \end{itemize}
+        
+        \vspace{0.1cm}
+        \fcolorbox{warnborder}{warnbg}{\begin{minipage}{0.9\textwidth}
+            \tiny
+            \textbf{AI doesn't ask:} Temp range? Sampling rate? Power budget? Humidity needed?
+        \end{minipage}}
+        
+        \column{0.5\textwidth}
+        \textbf{GOOD (human-verified):}
+        
+        \vspace{0.05cm}
+        \scriptsize
+        \begin{tabular}{p{2.3cm}p{2.6cm}}
+            \toprule
+            \textbf{Requirement} & \textbf{Solution} \\
+            \midrule
+            R1: $\pm$0.5°C & DHT22: $\pm$0.5°C (DS p.3) \\
+            R2: WiFi MQTT & ESP32: WiFi, 520kB RAM \\
+            R3: 1-yr battery & Sleep: 10$\mu$A (DS Tab.7) \\
+            R4: \$50 budget & BOM: \$42 \\
+            \bottomrule
+        \end{tabular}
+        \normalsize
+        
+        \vspace{0.1cm}
+        \begin{block}{Key Point}
+            \small
+            Every component answers a PES requirement with \textbf{verified} quantitative evidence.
+        \end{block}
+        
+        \vspace{0.05cm}
+        \fcolorbox{scaleborder}{scalebg}{\begin{minipage}{0.9\textwidth}
+            \tiny
+            \textbf{Human value:} Asked context questions, verified in datasheets, documented reasoning.
+        \end{minipage}}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[shrink=10]{Scalability: Can You Deploy 1000 Units?}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{Questions investors ask:}
+        
+        \vspace{0.1cm}
+        \begin{enumerate}
+            \item \textbf{Cost at scale:} Unit cost at 1000?
+            \begin{itemize}
+                \item MVP: \$42/unit (prototype)
+                \item 1000 units: \$28/unit (bulk)
+                \item \textcolor{red}{AI can't tell you this!}
+            \end{itemize}
+            
+            \item \textbf{Supply chain:} Components available?
+            \begin{itemize}
+                \item Check lead times (Digi-Key)
+                \item Avoid single-source parts
+                \item \textcolor{red}{AI has no 2026 data!}
+            \end{itemize}
+            
+            \item \textbf{Manufacturing:} Can it be assembled?
+            \begin{itemize}
+                \item Breadboard = prototype
+                \item PCB = production ready
+            \end{itemize}
+        \end{enumerate}
+        
+        \column{0.45\textwidth}
+        \fcolorbox{scaleborder}{scalebg}{
+        \begin{minipage}{0.9\textwidth}
+            \vspace{0.2cm}
+            \textbf{Scalability Checklist:}
+            
+            \vspace{0.1cm}
+            \begin{itemize}
+                \item[$\square$] Unit cost $<$ \$50 at prototype qty
+                \item[$\square$] Projected cost at 1000 units documented
+                \item[$\square$] All components available from $\geq$2 suppliers
+                \item[$\square$] Lead times $<$ 4 weeks
+                \item[$\square$] Power budget allows $>$6 months battery
+                \item[$\square$] Cloud costs estimated (\$/month for 1000 devices)
+                \item[$\square$] Data storage costs estimated
+            \end{itemize}
+            \vspace{0.2cm}
+        \end{minipage}
+        }
+        
+        \vspace{0.15cm}
+        \begin{alertblock}{Human Value}
+            \small
+            You get \textbf{real quotes}, check \textbf{actual stock}, estimate \textbf{practical constraints}.
+        \end{alertblock}
+        
+        \vspace{0.1cm}
+        \fcolorbox{warnborder}{warnbg}{\begin{minipage}{0.9\textwidth}
+            \scriptsize
+            \textbf{AI workflow:} Ask AI for options $\rightarrow$ Verify in datasheets $\rightarrow$ Get real quotes $\rightarrow$ Document reasoning
+        \end{minipage}}
+    \end{columns}
+\end{frame}
+
+%==============================================================================
+\section{BOM Template Walkthrough}
+%==============================================================================
+
+\begin{frame}{The BOM Template: Section by Section}
+    \textbf{Your \texttt{mvp\_project\_spec.tex} has 3 critical sections:}
+    
+    \vspace{0.3cm}
+    \begin{enumerate}
+        \item \textbf{Requirements from PES} (copy 3 most hardware-relevant)
+        \begin{itemize}
+            \item These drive your component choices
+            \item Example: ``R1: Measure soil moisture every 10 min with $\pm$2\% accuracy''
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \item \textbf{Bill of Materials} (the shopping list)
+        \begin{itemize}
+            \item Component, Part \#, Supplier, Unit \$, Qty, Have/Need
+            \item \textbf{Critical column:} ``Why this part? (link to R1--R3)''
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \item \textbf{Datasheet citations} (proof of viability)
+        \begin{itemize}
+            \item URL or document name + section
+            \item Example: ``DHT22 datasheet section 3.2: accuracy $\pm$0.5°C''
+        \end{itemize}
+    \end{enumerate}
+    
+    \vspace{0.2cm}
+    \begin{block}{Grading Emphasis}
+        \textbf{Justification} (why this part?) weighs more than just listing components.\\
+        A 3-component BOM with excellent justification $>$ 10-component BOM with no reasoning.
+    \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Example: Smart Agriculture BOM}
+    \textbf{Scenario:} Vineyard soil moisture monitoring, 50 nodes, solar-powered, LoRaWAN
+    
+    \vspace{0.2cm}
+    \textbf{PES Requirements:}
+    \begin{itemize}
+        \item R1: Measure soil moisture every 10 min, $\pm$2\% accuracy
+        \item R2: 2 km range to gateway, outdoor deployment
+        \item R3: Solar-powered, operate 365 days/year in New England
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \footnotesize
+    \begin{tabular}{p{2.2cm}p{1.8cm}p{1.2cm}p{0.8cm}p{0.6cm}p{0.9cm}p{3.5cm}}
+        \toprule
+        \textbf{Component} & \textbf{Part \#} & \textbf{Supplier} & \textbf{\$} & \textbf{Qty} & \textbf{Have/Need} & \textbf{Justification (link to PES)} \\
+        \midrule
+        Soil moisture & Capacitive v1.2 & Amazon & 6.99 & 2 & Need & \textbf{R1:} Capacitive (not resistive) avoids corrosion. Datasheet: $\pm$3\% accuracy meets R1. \\
+        LoRa module & RFM95W 868MHz & Adafruit & 19.95 & 1 & Need & \textbf{R2:} LoRa 868MHz, +20dBm TX. Link budget: 2.5km range (calc in report). \\
+        MCU & STM32L0 & Mouser & 4.50 & 1 & Need & \textbf{R3:} 0.8$\mu$A sleep mode. Power budget: 180 days on 2000mAh (calc). \\
+        Solar panel & 6V 1W & Amazon & 8.99 & 1 & Need & \textbf{R3:} 1W panel + 18650 battery. New England: 3.5h sun/day winter sufficient. \\
+        \midrule
+        \multicolumn{3}{r}{\textbf{Total Need:}} & \multicolumn{4}{l}{\textbf{\$40.43}} \\
+        \bottomrule
+    \end{tabular}
+    \normalsize
+    
+    \vspace{0.2cm}
+    \textbf{Scalability note:} At 1000 units, RFM95W drops to \$12 (Digi-Key bulk), total \$32/unit.
+\end{frame}
+
+\begin{frame}[shrink=12]{Common Mistakes to Avoid}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Mistake 1: No justification}
+        \begin{itemize}
+            \item Bad: ``DHT22 temperature sensor''
+            \item Fix: ``DHT22: $\pm$0.5°C (DS p.3) meets R1. DS18B20 needs OneWire (complex). BME280 $\pm$1°C insufficient.''
+        \end{itemize}
+        
+        \vspace{0.15cm}
+        \textbf{Mistake 2: No datasheet citation}
+        \begin{itemize}
+            \item Bad: ``ESP32 has enough memory''
+            \item Fix: ``ESP32 DS Table 2: 520kB SRAM. Code: 180kB. Margin: 65\%.''
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \textbf{Mistake 3: Ignoring scalability}
+        \begin{itemize}
+            \item Bad: BOM \$48 (barely under budget)
+            \item Fix: ``Prototype: \$48. 1000 units: \$32 (bulk).''
+        \end{itemize}
+        
+        \vspace{0.15cm}
+        \textbf{Mistake 4: Single-source}
+        \begin{itemize}
+            \item Bad: ``Custom sensor from Alibaba''
+            \item Fix: ``Primary: Sensor X (Digi-Key). Backup: Sensor Y (Mouser).''
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.2cm}
+    \fcolorbox{warnborder}{warnbg}{
+    \begin{minipage}{0.95\textwidth}
+        \small
+        \textbf{Remember:} This goes in your portfolio. Show you can design a real product.
+    \end{minipage}
+    }
+\end{frame}
+
+%==============================================================================
+\section{Next Steps}
+%==============================================================================
+
+\begin{frame}[shrink=5]{What Happens After You Submit}
+    \textbf{Updated Timeline:}
+    
+    \vspace{0.15cm}
+    \begin{enumerate}
+        \item \textbf{Today (Wed 03/19):} Submit BOM by end of day on Canvas
+        
+        \item \textbf{Thu--Sun:} I review BOMs, order parts
+        
+        \item \textbf{Week of Mar 23, 25, 26:} \textbf{3 hands-on sessions (online)}
+        \begin{itemize}
+            \item Wokwi ESP32 simulator, Node-RED pipeline, dataset analysis
+            \item No physical hardware yet --- prepare for when it arrives
+        \end{itemize}
+        
+        \item \textbf{From Mar 29 onwards:} \textbf{Hardware available, lab reserved}
+        \begin{itemize}
+            \item Assembly, sensor validation, MQTT integration
+        \end{itemize}
+        
+        \item \textbf{Week 14 (Wed 04/09):} \textbf{MVP Working Demo}
+        \begin{itemize}
+            \item Sensor $\rightarrow$ MQTT $\rightarrow$ DB $\rightarrow$ Dashboard
+        \end{itemize}
+        
+        \item \textbf{Week 15 (Tue 04/15):} Final report + code + video
+        
+        \item \textbf{Week 16 (Tue/Wed 04/22--23):} Final presentations
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}[shrink=8]{Your Portfolio Narrative}
+    \textbf{What you'll have at end of course:}
+    
+    \vspace{0.2cm}
+    \begin{columns}
+        \column{0.48\textwidth}
+        \textbf{Technical artifacts:}
+        \begin{enumerate}
+            \item \textbf{PES} (Problem Engineering Spec)
+            \item \textbf{BOM} with justifications
+            \item \textbf{Hardware validation report}
+            \item \textbf{Working code} (ESP32/Arduino)
+            \item \textbf{Data pipeline} (MQTT $\rightarrow$ DB)
+            \item \textbf{Final report} (LaTeX)
+            \item \textbf{Demo video} (2--3 min)
+        \end{enumerate}
+        
+        \column{0.52\textwidth}
+        \textbf{The story you tell:}
+        
+        \vspace{0.15cm}
+        \small
+        \begin{quote}
+            ``I designed an IoT system for [problem]. I selected components based on requirements, validated them experimentally, and demonstrated a working prototype that could scale to 1000 units at \$X/unit. The system handles edge cases and achieves [metrics].''
+        \end{quote}
+        \normalsize
+        
+        \vspace{0.15cm}
+        \begin{alertblock}{Employer Value}
+            Complete product development cycle in one semester.
+        \end{alertblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Questions \& Office Hours}
+    \begin{center}
+        \Large \textbf{Questions?}
+        
+        \vspace{0.5cm}
+        \normalsize
+        \textbf{Next 20 minutes:} Work on your BOM, I'll circulate for 1-on-1 help
+        
+        \vspace{0.3cm}
+        \textbf{Key questions to ask yourself:}
+        \begin{itemize}
+            \item Does each component answer a specific PES requirement?
+            \item Can I cite a datasheet for every spec I claim?
+            \item Is my solution viable (does it actually work)?
+            \item Is it scalable (can I deploy 1000 units)?
+            \item Would an employer reading this BOM hire me?
+        \end{itemize}
+        
+        \vspace{0.5cm}
+        \textbf{Deadline: Today, end of day on Canvas}
+    \end{center}
+\end{frame}
+
+\end{document}

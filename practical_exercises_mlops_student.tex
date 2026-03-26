@@ -1,0 +1,960 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc,fit,backgrounds}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{fontawesome5}
+
+\lstset{
+    basicstyle=\ttfamily\scriptsize,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    keywordstyle=\color{blue!70},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red!60},
+    showstringspaces=false,
+    tabsize=2
+}
+
+\definecolor{stepbg}{RGB}{232,245,233}
+\definecolor{stepborder}{RGB}{76,175,80}
+\definecolor{aibg}{RGB}{243,229,245}
+\definecolor{aiborder}{RGB}{156,39,176}
+\definecolor{verifybg}{RGB}{227,242,253}
+\definecolor{verifyborder}{RGB}{33,150,243}
+\definecolor{hwbg}{RGB}{255,243,224}
+\definecolor{hwborder}{RGB}{255,152,0}
+\definecolor{tryitbg}{RGB}{255,253,231}
+\definecolor{tryitborder}{RGB}{198,167,0}
+\definecolor{driftbg}{RGB}{255,235,238}
+\definecolor{driftborder}{RGB}{211,47,47}
+
+\title[EECE5155 -- MLOps Seminar]{MLOps for IoT: Hands-On Seminar}
+\subtitle{Real Sensor Data $\rightarrow$ Train $\rightarrow$ Deploy $\rightarrow$ Drift $\rightarrow$ Retrain}
+\author{Eduardo Baena}
+\date{Spring 2026}
+\institute{Northeastern University\\
+\texttt{e.baena@northeastern.edu}}
+
+\begin{document}
+
+%--- Title ---
+\begin{frame}
+    \titlepage
+    \vspace{-0.8cm}
+    \begin{center}
+        \textbf{EECE5155: Wireless Sensor Networks and the Internet of Things}\\[4pt]
+        {\small \faIcon{github}\ \texttt{\href{https://github.com/ebaenamar/ECE5155\_practical\_MLOps}{github.com/ebaenamar/ECE5155\_practical\_MLOps}}}
+    \end{center}
+\end{frame}
+
+%==============================================================================
+\section{The Real-World Problem}
+%==============================================================================
+
+\begin{frame}{The IoT Scenario: Activity Recognition on a Wearable}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{The device:} smartphone worn on the waist\\
+        \textbf{The sensors:} 3-axis accelerometer + gyroscope at 50 Hz\\
+        \textbf{The goal:} automatically detect what the user is doing
+
+        \vspace{0.3cm}
+        \textbf{Six activity classes:}
+        \begin{enumerate}
+            \item WALKING
+            \item WALKING\_UPSTAIRS
+            \item WALKING\_DOWNSTAIRS
+            \item SITTING
+            \item STANDING
+            \item LAYING
+        \end{enumerate}
+
+        \column{0.42\textwidth}
+        \begin{exampleblock}{Why this matters in IoT}
+            Wearable health monitors, fall detection for elderly care, physical therapy tracking, fitness wearables. The same pipeline runs on Fitbit, Apple Watch, hospital wristbands.
+        \end{exampleblock}
+
+        \vspace{0.2cm}
+        \begin{block}{The dataset: UCI HAR}
+            30 volunteers, ages 19--48, real smartphone recordings, video-labeled.
+            10,299 samples. Published 2013, cited 5,000+ times.\\
+            {\footnotesize \texttt{archive.ics.uci.edu/dataset/240}}
+        \end{block}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{What Is Training Data? --- Concretely}
+    \begin{columns}
+        \column{0.52\textwidth}
+        \textbf{How this dataset was collected:}
+        \begin{enumerate}
+            \item 30 volunteers wore a phone on their waist
+            \item Each performed 6 activities while \textbf{video-recorded}
+            \item Researchers watched the video and wrote down which activity happened at every moment
+            \item Those timestamps became the \textbf{labels}
+        \end{enumerate}
+
+        \vspace{0.2cm}
+        \textbf{One labeled example =}\\
+        \hspace{0.3cm} 2.56 s of sensor readings (128 samples)\\
+        \hspace{0.3cm} + one label: ``WALKING''
+
+        \column{0.45\textwidth}
+        \begin{alertblock}{Key engineering insight}
+            The model never sees raw signal. From each 2.56-second window, \textbf{561 statistical features} are extracted: mean, std, FFT coefficients, correlations between axes. This is \textbf{feature engineering} --- the same step in your sensor pipeline before running ML.
+        \end{alertblock}
+
+        \vspace{0.2cm}
+        \begin{exampleblock}{The labeling cost}
+            30 people $\times$ hours of recording $\times$ manual video review. This is why labeled IoT data is expensive. In production, a domain expert (nurse, engineer) labels every event.
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Seminar Timeline}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{What you will build today:}
+        \begin{enumerate}
+            \item \texttt{explore.py} --- visualize the data
+            \item \texttt{train.py} --- train Random Forest, learn the split trap
+            \item \texttt{compare\_models.py} --- kNN vs RF vs SVM: accuracy, speed, size
+            \item \texttt{drift\_sim.py} --- deploy to elderly patients, watch accuracy drop
+            \item \texttt{retrain.py} --- collect new data, recover accuracy
+        \end{enumerate}
+
+        \column{0.42\textwidth}
+        \begin{alertblock}{Timeline}
+            \textbf{0--5 min:} Setup\\
+            \textbf{5--20 min:} Explore + train\\
+            \textbf{20--35 min:} Compare 3 algorithms\\
+            \textbf{35--50 min:} Drift + retrain\\
+            \textbf{50--60 min:} Take-home briefing
+        \end{alertblock}
+
+        \vspace{0.2cm}
+        \begin{exampleblock}{Grading}
+            Working code only: \textbf{50\%}\\
+            Broken code + debug log: \textbf{80\%}\\
+            Working + reasoning + AI audit: \textbf{100\%}
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+%==============================================================================
+\section{Step 0: Setup}
+%==============================================================================
+
+\begin{frame}[fragile]{Step 0a: Install Dependencies (Before Class)}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{check-circle} Do this before the seminar. Takes 5 minutes.}
+    \end{minipage}}
+
+    \vspace{0.15cm}
+    \textbf{1. Check you have Python 3.9+:}
+\begin{lstlisting}[language=bash]
+python --version          # Windows / Linux
+python3 --version         # macOS
+\end{lstlisting}
+
+    \vspace{0.1cm}
+    \textbf{2. Install dependencies (same command on all OS):}
+\begin{lstlisting}[language=bash]
+pip install scikit-learn pandas numpy matplotlib seaborn scipy
+# macOS/Linux: use pip3 if pip is not found
+# Windows: open Anaconda Prompt or PowerShell as Administrator
+\end{lstlisting}
+
+    \vspace{0.1cm}
+    \textbf{3. Verify install:}
+\begin{lstlisting}[language=Python]
+import sklearn, pandas, numpy, matplotlib, seaborn, scipy
+print("All packages OK")
+\end{lstlisting}
+
+    \fcolorbox{verifyborder}{verifybg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{check} If you see ``All packages OK'' with no errors, you are ready for step 0b.}
+    \end{minipage}}
+\end{frame}
+
+\begin{frame}[fragile,shrink=15]{Step 0b: Download the Dataset (Run Once)}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{download} UCI HAR dataset: $\sim$60 MB, saves 4 CSV files. Run once before class.}
+    \end{minipage}}
+
+    \vspace{0.05cm}
+    \textbf{Download and save as CSV files:}
+\begin{lstlisting}[language=Python,basicstyle=\ttfamily\tiny]
+import urllib.request, zipfile, io, pandas as pd
+
+URL = ("https://archive.ics.uci.edu/static/public/240/"
+       "human+activity+recognition+using+smartphones.zip")
+req = urllib.request.Request(URL, headers={"User-Agent": "Mozilla/5.0"})
+with urllib.request.urlopen(req, timeout=120) as r:
+    outer = zipfile.ZipFile(io.BytesIO(r.read()))
+inner = zipfile.ZipFile(io.BytesIO(outer.read("UCI HAR Dataset.zip")))
+
+def read(path):
+    with inner.open(path) as f: return f.read().decode()
+
+features = [l.split(" ",1)[1].strip()
+            for l in read("UCI HAR Dataset/features.txt").strip().split("\n")]
+labels   = {int(l.split()[0]): l.split()[1]
+            for l in read("UCI HAR Dataset/activity_labels.txt").strip().split("\n")}
+
+def load(split):
+    X = pd.read_csv(io.StringIO(read(f"UCI HAR Dataset/{split}/X_{split}.txt")),
+                    sep=r"\s+", header=None, names=features)
+    y = pd.read_csv(io.StringIO(read(f"UCI HAR Dataset/{split}/y_{split}.txt")),
+                    header=None)[0].map(labels).rename("Activity")
+    return X, y
+
+X_train, y_train = load("train")
+X_test,  y_test  = load("test")
+X_train.to_csv("har_X_train.csv", index=False)
+X_test.to_csv( "har_X_test.csv",  index=False)
+y_train.to_csv("har_y_train.csv", index=False)
+y_test.to_csv( "har_y_test.csv",  index=False)
+print(f"Train: {X_train.shape}   Test: {X_test.shape}")
+print(y_train.value_counts())
+\end{lstlisting}
+
+    \vspace{0.05cm}
+    \fcolorbox{verifyborder}{verifybg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{check} Expected: \texttt{Train: (7352, 561) \ \ Test: (2947, 561)} and 6 activity classes listed. You are ready.}
+    \end{minipage}}
+\end{frame}
+
+%==============================================================================
+\section{Part 1: Explore and Train (5--20 min)}
+%==============================================================================
+
+\begin{frame}[shrink=5]{What Are We Actually Doing?}
+    \begin{columns}
+        \column{0.52\textwidth}
+        \textbf{The core idea of supervised learning:}
+        \begin{enumerate}
+            \item Collect sensor data where you \textbf{already know the answer}\\(e.g.\ a video confirms ``this person is walking'')
+            \item Show the algorithm many labeled examples\\$\rightarrow$ this is called \textbf{training}
+            \item Show it \textbf{new examples it has never seen}\\$\rightarrow$ measure how often it gets the right answer\\$\rightarrow$ this is called \textbf{testing}
+        \end{enumerate}
+
+        \vspace{0.2cm}
+        \textbf{Why split into train and test?}\\Because if you test on the same data you trained on, you are asking ``do you remember?'', not ``do you understand?''. A student who memorized the exam answers scores 100\% but learned nothing.
+
+        \column{0.45\textwidth}
+        \begin{exampleblock}{In numbers for this dataset}
+            \textbf{7352 examples} $\rightarrow$ the model learns from these\\[4pt]
+            \textbf{2947 examples} $\rightarrow$ locked away during training, used only to measure accuracy\\[4pt]
+            The split was made by \textbf{person}: subjects 1--21 train, subjects 22--30 test. Never mixed.
+        \end{exampleblock}
+
+        \vspace{0.2cm}
+        \begin{alertblock}{One number to understand}
+            \textbf{Accuracy = correct predictions / total predictions}\\If the model predicts 2700 out of 2947 correctly: accuracy = 2700/2947 = 0.916
+        \end{alertblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile,shrink=5]{Step 1: Visualize the Data}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{search} Before training anything, always look at the data. Create \texttt{explore.py}.}
+    \end{minipage}}
+
+    \vspace{0.05cm}
+    {\footnotesize \texttt{read\_csv} loads the table. \texttt{X} = 561 numbers/sample. \texttt{y} = label. \texttt{value\_counts()} counts samples/class. \texttt{scatter()} plots 2 features coloured by activity.}
+
+\begin{lstlisting}[language=Python,basicstyle=\ttfamily\tiny]
+import pandas as pd, matplotlib.pyplot as plt, seaborn as sns
+
+X_train = pd.read_csv("har_X_train.csv")
+X_test  = pd.read_csv("har_X_test.csv")
+y_train = pd.read_csv("har_y_train.csv").squeeze()
+y_test  = pd.read_csv("har_y_test.csv").squeeze()
+
+# 1. Class balance (train set)
+y_train.value_counts().plot(kind="bar", title="Samples per activity", color="steelblue")
+plt.tight_layout(); plt.savefig("class_balance.png"); plt.close()
+
+# 2. Scatter: two features that strongly separate activities
+fig, ax = plt.subplots(figsize=(9, 4))
+palette = sns.color_palette("tab10", 6)
+X_all = pd.concat([X_train, X_test], ignore_index=True)
+y_all = pd.concat([y_train, y_test], ignore_index=True)
+for i, act in enumerate(y_all.unique()):
+    mask = (y_all == act)
+    ax.scatter(X_all.loc[mask, "tBodyAccMag-mean()"],
+               X_all.loc[mask, "tGravityAcc-mean()-X"],
+               label=act, alpha=0.3, s=10, color=palette[i])
+ax.set_xlabel("Body Acc Magnitude (mean)")
+ax.set_ylabel("Gravity Acc X (mean)")
+ax.legend(fontsize=7, ncol=2)
+plt.tight_layout(); plt.savefig("feature_scatter.png"); plt.close()
+print("Plots saved.")
+\end{lstlisting}
+
+    \fcolorbox{verifyborder}{verifybg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{check} Scatter: LAYING separate (lying flat). WALKING separate (high energy). SITTING/STANDING \emph{overlap} --- gravity vectors nearly identical for both postures.}
+    \end{minipage}}
+\end{frame}
+
+\begin{frame}[shrink=10]{What Is a Random Forest?}
+    \begin{columns}
+        \column{0.52\textwidth}
+        \textbf{One decision tree = a chain of yes/no questions:}
+        \begin{enumerate}
+            \item Is Body Acc Magnitude $>$ -0.5?
+            \item If yes: is Gravity X $>$ 0.3? $\rightarrow$ WALKING
+            \item If no: is Gyro Z mean $<$ 0.1? $\rightarrow$ LAYING
+            \item \ldots and so on for each of the 561 features
+        \end{enumerate}
+
+        \vspace{0.2cm}
+        \textbf{Random Forest = 100 trees, each trained on a random subset of the data.} Final answer = majority vote of 100 trees. More trees $\rightarrow$ more robust, less likely to memorize noise.
+
+        \column{0.45\textwidth}
+        \begin{exampleblock}{What \texttt{rf.fit(X\_train, y\_train)} does}
+            The algorithm looks at all 7352 training examples and builds 100 decision trees. Each tree learns which combinations of the 561 features distinguish the 6 activities. This step can take 10--30 seconds. \textbf{You only do this once.}
+        \end{exampleblock}
+
+        \vspace{0.2cm}
+        \begin{exampleblock}{What \texttt{rf.predict(X\_test)} does}
+            For each of the 2947 test examples, the 100 trees each vote for one activity. The majority vote wins. This is \textbf{inference} --- it runs in milliseconds.
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[shrink=8]{How Do We Measure Whether a Model Works?}
+    \begin{columns}
+        \column{0.50\textwidth}
+        \textbf{Accuracy} --- the obvious metric:
+        \[\text{accuracy} = \frac{\text{correct predictions}}{\text{total predictions}}\]
+        \textbf{Problem:} a fall-detection model that \emph{always} predicts ``no fall'' achieves 99\% accuracy --- and misses every real fall. In IoT, different errors have very different costs.
+
+        \vspace{0.2cm}
+        \begin{block}{Two metrics that matter more}
+            \textbf{Precision:} of all the times the model fired the alarm, how many were real?\\
+            $\rightarrow$ high precision = few false alarms\\[4pt]
+            \textbf{Recall:} of all real events, how many did we catch?\\
+            $\rightarrow$ high recall = few missed events\\[4pt]
+            \textbf{F1:} harmonic mean of both --- one summary number per class
+        \end{block}
+
+        \column{0.47\textwidth}
+        \textbf{Confusion matrix} --- the most informative output:
+
+        \vspace{0.1cm}
+        {\small Rows = true label. Columns = predicted label. Diagonal = correct. Off-diagonal = errors and exactly what got confused with what.}
+
+        \vspace{0.2cm}
+        \begin{alertblock}{IoT framing}
+            {\small Which failure modes are you shipping?\\
+            A fall-detector confusing WALKING with FALLING $\rightarrow$ constant alarms in the corridor.\\
+            A maintenance system confusing ``early fault'' with ``normal'' $\rightarrow$ misses the event it was built to catch.}
+        \end{alertblock}
+
+        \vspace{0.15cm}
+        \begin{exampleblock}{Workflow}
+            {\small 1. Accuracy --- ballpark check\\
+            2. Per-class recall --- critical classes detected?\\
+            3. Confusion matrix --- which errors?\\
+            4. Are those errors acceptable for your use case?}
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile,shrink=5]{Step 2: Train Your First Model}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{python} Create \texttt{train.py} --- split by subject, train Random Forest.}
+    \end{minipage}}
+
+\begin{lstlisting}[language=Python]
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+import pickle
+
+X_train = pd.read_csv("har_X_train.csv")
+X_test  = pd.read_csv("har_X_test.csv")
+y_train = pd.read_csv("har_y_train.csv").squeeze()
+y_test  = pd.read_csv("har_y_test.csv").squeeze()
+print(f"Train: {len(X_train)} | Test: {len(X_test)}")
+
+rf = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+rf.fit(X_train, y_train)
+
+acc = accuracy_score(y_test, rf.predict(X_test))
+print(f"\nRandom Forest accuracy: {acc:.3f}")
+print(classification_report(y_test, rf.predict(X_test)))
+pickle.dump(rf, open("rf_model.pkl", "wb"))
+\end{lstlisting}
+
+    \fcolorbox{tryitborder}{tryitbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{hand-point-right} After running: which two activities are most confused? Check the classification report. Why does that make physical sense?}
+    \end{minipage}}
+\end{frame}
+
+\begin{frame}[shrink=5]{Why Does the Split Strategy Matter?}
+    \begin{columns}
+        \column{0.52\textwidth}
+        \textbf{Imagine this exam scenario:}\\[4pt]
+        A professor gives students the exam questions one week early. Students memorize the answers. On exam day, everyone scores 100\%. Does that mean they learned the material?\\[8pt]
+        \textbf{The same thing happens in ML} when you mix data from the same person in both train and test sets:
+        \begin{itemize}
+            \item The model sees subject 5's walking pattern during training
+            \item It is tested on \textbf{another window from subject 5}
+            \item It ``recognizes'' the person, not the activity
+            \item Accuracy looks great --- but it fails on any new user
+        \end{itemize}
+
+        \column{0.45\textwidth}
+        \begin{alertblock}{The correct question to ask}
+            ``If I deploy this to a new person the model has \textbf{never seen}, how well does it work?''\\[4pt]
+            This is why the UCI HAR dataset splits by \textbf{subject}: the 9 test subjects were never in the training set.
+        \end{alertblock}
+
+        \vspace{0.2cm}
+        \begin{exampleblock}{What you will observe}
+            Subject split: \textbf{0.929} $\leftarrow$ real accuracy\\[2pt]
+            Random shuffle: \textbf{0.978} $\leftarrow$ fake, do not trust\\[4pt]
+            A 5 pp gap that would mislead any engineering decision.
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile,shrink=5]{Step 3: The Split Trap}
+    \fcolorbox{driftborder}{driftbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{exclamation-triangle} A critical evaluation mistake. Add this to \texttt{train.py} and run it.}
+    \end{minipage}}
+
+    \vspace{0.1cm}
+\begin{lstlisting}[language=Python]
+from sklearn.model_selection import train_test_split
+
+# Wrong split: random 80/20 shuffle across all subjects
+X_all = pd.concat([X_train, X_test], ignore_index=True)
+y_all = pd.concat([y_train, y_test], ignore_index=True)
+X_tr2, X_te2, y_tr2, y_te2 = train_test_split(
+    X_all, y_all, test_size=0.2, random_state=42)
+rf2 = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+rf2.fit(X_tr2, y_tr2)
+acc_wrong = accuracy_score(y_te2, rf2.predict(X_te2))
+print(f"Subject split:  {acc:.3f}   <-- real deployment accuracy")
+print(f"Random split:   {acc_wrong:.3f}   <-- inflated, do not trust!")
+\end{lstlisting}
+
+    \vspace{0.1cm}
+    \textbf{Expected output:}
+\begin{lstlisting}
+Subject split:  0.929   <-- real deployment accuracy
+Random split:   0.977   <-- inflated, do not trust!
+\end{lstlisting}
+
+    \fcolorbox{verifyborder}{verifybg}{\begin{minipage}{0.93\textwidth}
+    \textbf{Why the 5\% gap?} Random split leaks windows from the same subject into both train and test. The model memorizes per-person gait patterns. When deployed to \textbf{new users} it cannot see, the real accuracy is 0.93, not 0.98. \textbf{Your evaluation must match your deployment scenario.}
+    \end{minipage}}
+\end{frame}
+
+%==============================================================================
+\section{Part 2: Compare ML Methods (20--35 min)}
+%==============================================================================
+
+\begin{frame}[shrink=10]{Part 2: Choosing the Right Algorithm for IoT}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{Three candidates on this problem:}
+
+        \vspace{0.2cm}
+        \begin{tabular}{lp{4.2cm}}
+            \toprule
+            \textbf{Method} & \textbf{Core idea} \\
+            \midrule
+            k-NN & find the $k$ nearest training examples; majority vote \\
+            Random Forest & 100 decision trees; majority vote \\
+            SVM (linear) & hyperplane maximizing class margins \\
+            \bottomrule
+        \end{tabular}
+
+        \vspace{0.3cm}
+        \textbf{The IoT constraint nobody mentions:}\\
+        A microcontroller has 256 kB RAM. k-NN stores the entire training set: $7352 \times 561$ floats = \textbf{16 MB}. That does not fit on an MCU. Accuracy alone is not enough.
+
+        \column{0.42\textwidth}
+        \begin{alertblock}{What you are really choosing}
+            For each algorithm, you care about:\\[4pt]
+            \textbf{Accuracy} --- does it work?\\
+            \textbf{Inference time} --- does it run at 50 Hz?\\
+            \textbf{Model size} --- does it fit in flash?\\
+            \textbf{Training data needed} --- how many labels?\\[4pt]
+            Today you will measure all four.
+        \end{alertblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Why Do We Need to ``Scale'' the Data?}
+    \begin{columns}
+        \column{0.52\textwidth}
+        \textbf{The problem with raw features:}\\[4pt]
+        The 561 features have very different numerical ranges:
+        \begin{itemize}
+            \item \texttt{tBodyAcc-mean()-X} $\approx$ $-$0.3 to $+$0.3
+            \item \texttt{tGravityAcc-energy()-Z} $\approx$ $-$1.0 to $+$1.0
+            \item \texttt{fBodyAcc-maxInds-X} $\approx$ $-$128 to $0$
+        \end{itemize}
+        \vspace{0.1cm}
+        A model that compares distances (k-NN) or maximizes margins (SVM) is dominated by the feature with the largest numbers. That is an accident of units, not physics.\\[4pt]
+        \textbf{StandardScaler}: subtract mean, divide by std $\rightarrow$ every feature has mean=0, std=1.
+
+        \column{0.45\textwidth}
+        \textbf{Important rule --- fit only on train:}
+\begin{lstlisting}[language=Python]
+scaler = StandardScaler()
+scaler.fit(X_train)   # learn mean/std
+Xtr = scaler.transform(X_train)
+Xte = scaler.transform(X_test)
+# Never fit on X_test: that leaks
+# information about the future.
+\end{lstlisting}
+        \vspace{0.15cm}
+        \begin{block}{Random Forest does not need scaling}
+            Trees split on individual feature thresholds --- absolute scale does not matter. k-NN and SVM do need it.
+        \end{block}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile,shrink=10]{Step 4: Compare Three Classifiers}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{python} Create \texttt{compare\_models.py}}
+    \end{minipage}}
+
+\begin{lstlisting}[language=Python,basicstyle=\ttfamily\tiny]
+import time, os, pickle, tempfile, pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+X_train = pd.read_csv("har_X_train.csv")
+X_test  = pd.read_csv("har_X_test.csv")
+y_train = pd.read_csv("har_y_train.csv").squeeze()
+y_test  = pd.read_csv("har_y_test.csv").squeeze()
+
+scaler  = StandardScaler().fit(X_train)
+Xtr_sc  = scaler.transform(X_train)
+Xte_sc  = scaler.transform(X_test)
+
+models = {
+    "k-NN (k=5)":    (KNeighborsClassifier(n_neighbors=5, n_jobs=-1), True),
+    "Random Forest": (RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1), False),
+    "SVM (linear)":  (LinearSVC(max_iter=2000, random_state=42), True),
+}
+for name, (clf, use_scale) in models.items():
+    Xtr = Xtr_sc if use_scale else X_train
+    Xte = Xte_sc if use_scale else X_test
+    t0 = time.time();  clf.fit(Xtr, y_train);  train_t = time.time()-t0
+    t0 = time.time();  preds = clf.predict(Xte)
+    infer_ms = (time.time()-t0) / len(Xte) * 1000
+    acc = accuracy_score(y_test, preds)
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        pickle.dump(clf, f);  size_kb = os.path.getsize(f.name)/1024
+        os.unlink(f.name)
+    print(f"{name:<22} acc={acc:.3f}  train={train_t:.1f}s"
+          f"  infer={infer_ms:.3f}ms  size={size_kb:.0f}kB")
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile,shrink=10]{Step 5: Read the Comparison and Decide}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{play} Run: \texttt{python compare\_models.py}}
+    \end{minipage}}
+
+    \vspace{0.2cm}
+    \textbf{Expected output (your times will vary):}
+\begin{lstlisting}
+k-NN (k=5)             acc=0.884  train=0.1s  infer=~8ms  size=16384kB
+Random Forest          acc=0.929  train=~12s  infer=~0.05ms  size=5824kB
+SVM (linear)           acc=0.963  train=~4s   infer=~0.01ms  size=27kB
+\end{lstlisting}
+
+    \vspace{0.15cm}
+    \begin{center}
+    \footnotesize
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Method} & \textbf{Accuracy} & \textbf{Infer/sample} & \textbf{Model size} & \textbf{MCU deployable?} \\
+        \midrule
+        k-NN           & 0.884 & $\sim$8 ms & 16 MB (stores all data)  & No \\
+        Random Forest  & 0.929 & $\sim$0.05 ms & 5.7 MB (100 trees) & No \\
+        SVM (linear)   & \textbf{0.963} & \textbf{$\sim$0.01 ms} & \textbf{27 kB} & \textbf{Yes} \\
+        \bottomrule
+    \end{tabular}
+    \normalsize
+    \end{center}
+
+    \fcolorbox{tryitborder}{tryitbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{hand-point-right} Three things to discuss:}\\
+    1. Why is k-NN inference 600$\times$ slower than SVM?\\
+    2. Why does SVM win on accuracy here, despite being the simplest model?\\
+    3. For a Raspberry Pi gateway (no MCU constraint), which would you pick?
+    \end{minipage}}
+\end{frame}
+
+%==============================================================================
+\section{Part 3: Drift and Retrain (35--50 min)}
+%==============================================================================
+
+\begin{frame}[shrink=8]{Part 3: Concept Drift on a Wearable}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{The scenario:}\\
+        Your SVM was trained on healthy adults aged 19--48. On day one of deployment to a hospital with elderly patients, accuracy is already lower --- the model was \textbf{never trained on this population}. This is a \textbf{distribution mismatch}, not a gradual drift.
+
+        \vspace{0.2cm}
+        \textbf{Why does the model underperform on a new population?}
+        \begin{itemize}
+            \item Elderly gait has shorter steps and lower acceleration amplitude --- the feature distribution is different from day one
+            \item Phone placement varies patient to patient: waist vs chest vs pocket
+            \item Post-surgery or mobility-impaired patients move differently than healthy volunteers
+            \item True temporal drift also exists: MEMS sensors age, firmware updates change signal processing
+        \end{itemize}
+
+        \column{0.42\textwidth}
+        \textbf{The simulation:}\\
+        \begin{exampleblock}{Why scale 0.75?}
+        Menz et al.\ (2003) measured 10--20\% lower gait acceleration amplitude in elderly adults vs young adults. We use 0.75 to simulate a new deployment population. 345 feature columns contain ``Acc'' and are all scaled. This is a physics-based distribution shift, not random noise.
+        \end{exampleblock}
+
+        \vspace{0.1cm}
+        \begin{block}{Which activities drift most?}
+            WALKING classes --- acceleration-dependent.\\
+            SITTING/STANDING/LAYING --- gravity-dominated, mostly stable.
+        \end{block}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[shrink=8]{What Are We Actually Doing in \texttt{drift\_sim.py}?}
+    \begin{columns}
+        \column{0.52\textwidth}
+        \textbf{The simulation in plain English:}\\[4pt]
+        The model was trained on data from young adults. We want to know what happens when it is deployed to elderly patients.\\[4pt]
+        We do not have real elderly patient data --- so we simulate it:\\[4pt]
+        \begin{enumerate}
+            \item Take the test set (young adults)
+            \item Multiply all \textbf{acceleration features} by 0.75\\= ``these patients move with 25\% less amplitude''
+            \item Add tiny random noise (sensor variability)
+            \item Run the model on this modified data
+            \item Measure how much accuracy drops
+        \end{enumerate}
+        \vspace{0.1cm}
+        \textbf{We change the data. We do not change the model.}\\That is the whole point: the model is frozen in time.
+
+        \column{0.45\textwidth}
+        \begin{exampleblock}{The loop in the code}
+            We run this for scales 1.0, 0.95, 0.90 \ldots\ 0.70. Scale 1.0 = original data. Scale 0.75 = elderly gait simulation. The plot shows how accuracy degrades as the population drifts further from training data.
+        \end{exampleblock}
+        \vspace{0.2cm}
+        \begin{alertblock}{The key result to look for}
+            At scale=0.75: accuracy is \textbf{0.742} from the first prediction on this population (baseline was 0.963). WALKING recall is 0.38. The model silently underperforms --- \textbf{with no error message, no crash, no warning}.
+        \end{alertblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile,shrink=20]{Step 6: Simulate Drift and Observe Degradation}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{python} Create \texttt{drift\_sim.py}}
+    \end{minipage}}
+
+\begin{lstlisting}[language=Python,basicstyle=\ttfamily\tiny]
+import numpy as np, pandas as pd, matplotlib.pyplot as plt
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+X_train = pd.read_csv("har_X_train.csv")
+X_test  = pd.read_csv("har_X_test.csv")
+y_train = pd.read_csv("har_y_train.csv").squeeze()
+y_test  = pd.read_csv("har_y_test.csv").squeeze()
+
+scaler = StandardScaler().fit(X_train)
+svm    = LinearSVC(max_iter=2000, random_state=42)
+svm.fit(scaler.transform(X_train), y_train)
+baseline = accuracy_score(y_test, svm.predict(scaler.transform(X_test)))
+print(f"Baseline (young adults): {baseline:.3f}")
+
+acc_cols = [c for c in X_train.columns if "Acc" in c]  # 345 acceleration features
+rng = np.random.default_rng(7)
+results = []
+for scale in np.arange(1.0, 0.69, -0.05):
+    Xd = X_test.copy()
+    Xd[acc_cols] = Xd[acc_cols] * scale
+    Xd = Xd + rng.normal(0, 0.03*(1.2-scale), Xd.shape)
+    acc = accuracy_score(y_test, svm.predict(scaler.transform(Xd)))
+    results.append({"scale": round(scale,2), "accuracy": acc})
+    print(f"  scale={scale:.2f}: acc={acc:.3f}")
+
+df_r = pd.DataFrame(results)
+plt.figure(figsize=(8,4))
+plt.plot(df_r["scale"], df_r["accuracy"], "o-r", label="Drifted accuracy")
+plt.axhline(baseline, linestyle="--", color="blue",
+            label="Baseline %.3f" % baseline)
+plt.axhline(0.85, linestyle=":", color="orange", label="Alert threshold 0.85")
+plt.gca().invert_xaxis()
+plt.xlabel("Acc feature scale (1.0=young adults, 0.75=elderly gait)")
+plt.ylabel("Accuracy");  plt.title("SVM Accuracy Under Gait Drift")
+plt.legend();  plt.tight_layout()
+plt.savefig("drift_plot.png");  plt.close()
+print("Saved drift_plot.png")
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile,shrink=20]{Step 7: Retrain on Mixed Data}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{python} Create \texttt{retrain.py} --- add newly labeled samples to training set.}
+    \end{minipage}}
+
+\begin{lstlisting}[language=Python,basicstyle=\ttfamily\tiny]
+import numpy as np, pandas as pd
+from sklearn.svm import LinearSVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+X_train = pd.read_csv("har_X_train.csv")
+X_test  = pd.read_csv("har_X_test.csv")
+y_train = pd.read_csv("har_y_train.csv").squeeze()
+y_test  = pd.read_csv("har_y_test.csv").squeeze()
+
+rng      = np.random.default_rng(7)
+acc_cols = [c for c in X_train.columns if "Acc" in c]
+
+# 40% of test set re-labeled under drift = simulates new patient data
+X_new = X_test.copy().sample(frac=0.4, random_state=1)
+y_new = y_test.loc[X_new.index]
+X_new[acc_cols] = X_new[acc_cols] * 0.75
+X_new += rng.normal(0, 0.03*(1.2-0.75), X_new.shape)
+X_mixed = pd.concat([X_train, X_new], ignore_index=True)
+y_mixed = pd.concat([y_train, y_new], ignore_index=True)
+scaler_v2 = StandardScaler().fit(X_mixed)
+svm_v2    = LinearSVC(max_iter=2000, random_state=42)
+svm_v2.fit(scaler_v2.transform(X_mixed), y_mixed)
+# Drifted test set
+X_drifted = X_test.copy()
+X_drifted[acc_cols] = X_drifted[acc_cols] * 0.75
+X_drifted += rng.normal(0, 0.03*(1.2-0.75), X_drifted.shape)
+scaler_v1 = StandardScaler().fit(X_train)
+svm_v1    = LinearSVC(max_iter=2000, random_state=42)
+svm_v1.fit(scaler_v1.transform(X_train), y_train)
+acc_v1 = accuracy_score(y_test, svm_v1.predict(scaler_v1.transform(X_drifted)))
+acc_v2 = accuracy_score(y_test, svm_v2.predict(scaler_v2.transform(X_drifted)))
+acc_v2_clean = accuracy_score(y_test, svm_v2.predict(scaler_v2.transform(X_test)))
+print(f"v1 on drifted (elderly): {acc_v1:.3f}")
+print(f"v2 on drifted (elderly): {acc_v2:.3f}")
+print(f"v2 on clean  (young):   {acc_v2_clean:.3f}")
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile,shrink=8]{Step 8: The MLOps Loop Completed}
+    \fcolorbox{stepborder}{stepbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{play} Run: \texttt{python retrain.py}}
+    \end{minipage}}
+
+    \vspace{0.15cm}
+    \textbf{Expected results:}
+    \begin{center}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Scenario} & \textbf{SVM v1 (young adults)} & \textbf{SVM v2 (retrained)} \\
+        \midrule
+        Clean test (young adults) & 0.963 & $\sim$0.977 \\
+        Drifted test (elderly gait, scale=0.75) & $\sim$0.742 & $\sim$0.976 \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.1cm}
+    \fcolorbox{driftborder}{driftbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{What you observed:} v1 degraded from 0.963 to 0.742 with no code change, no crash, no error. v2 retrained on mixed data recovers to $\sim$0.976 on the drifted population and slightly improves on clean data (0.977). Recovery is strong because the 40\% new samples come from the same subjects as the test set --- in a real deployment, you would collect data from genuinely new patients, which would give lower but still meaningful recovery.
+    \end{minipage}}
+
+    \vspace{0.1cm}
+    \fcolorbox{tryitborder}{tryitbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{hand-point-right} Discuss:} v2 gains +23 pp on the drifted population with no cost on clean data. In this experiment, new training samples come from the same test subjects --- best-case recovery. Real deployments use data from new patients, so recovery will be partial. What matters: the direction is always correct. Is mixed retraining always worth the labeling cost?
+    \end{minipage}}
+\end{frame}
+
+%==============================================================================
+\section{Take-Home Tasks}
+%==============================================================================
+
+\begin{frame}[shrink=5]{Take-Home Tasks}
+    \fcolorbox{hwborder}{hwbg}{\begin{minipage}{0.93\textwidth}
+    \textbf{\faIcon{home} Due: one week from today, end of day (Canvas).}\\
+    AI is \textbf{encouraged} for take-home tasks. Always run the code to verify AI output.
+    \end{minipage}}
+
+    \vspace{0.3cm}
+    \begin{center}
+    \begin{tabular}{clc}
+        \toprule
+        \textbf{\#} & \textbf{Task} & \textbf{Weight} \\
+        \midrule
+        1 & Confusion matrix + feature importance analysis & 25\% \\
+        2 & KS-test drift detection without labels & 35\% \\
+        3 & Apply the full MLOps loop to your own project & 40\% \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+
+    \vspace{0.3cm}
+    \textbf{For each task submit:}
+    \begin{enumerate}
+        \item Code + output plots or tables
+        \item \textbf{AI audit:} what did you prompt? what did AI get wrong?
+        \item 2--3 sentences: what did you learn?
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]{Task 1: Confusion Matrix and Feature Importance (25\%)}
+    \textbf{Part A: Confusion matrix} for the SVM (normalized by row = per-class recall):
+    \begin{itemize}
+        \item Which two activities are most confused? Write one sentence with the physical reason.
+    \end{itemize}
+
+    \vspace{0.2cm}
+    \textbf{Part B: Feature importance:}
+\begin{lstlisting}[language=Python]
+import numpy as np
+coef_importance = np.abs(svm.coef_).mean(axis=0)
+top15_idx = np.argsort(coef_importance)[::-1][:15]
+for i in top15_idx:
+    print(f"{X.columns[i]:<42}  {coef_importance[i]:.4f}")
+\end{lstlisting}
+
+    Are the top features acceleration or gyroscope? Time domain or frequency domain? What does that tell you about which sensor and which signal property is most informative for activity recognition?
+
+    \vspace{0.1cm}
+    \fcolorbox{verifyborder}{verifybg}{\begin{minipage}{0.93\textwidth}
+    \textbf{Deliverable:} Confusion matrix image + top-15 feature table + answers.
+    \end{minipage}}
+\end{frame}
+
+\begin{frame}[fragile,shrink=8]{Task 2: KS-Test Drift Detection Without Labels (35\%)}
+    \textbf{The real problem:} accuracy-based monitoring needs ground truth labels. In a hospital deployment, confirming ``the patient was walking'' requires manual review --- days later. You need drift detection \textbf{without labels}.
+
+    \vspace{0.2cm}
+    \textbf{Write \texttt{ks\_drift.py}} that:
+    \begin{enumerate}
+        \item Uses the original test set as the reference distribution
+        \item Uses the drifted test set (scale 0.75) as the current distribution
+        \item Runs \texttt{ks\_2samp} on all 561 features
+        \item Reports: how many features flagged (p $<$ 0.05)? Compute the flagging rate separately for the 345 acceleration columns and the 213 gyroscope columns
+        \item Plots a bar chart of the top 20 features by KS statistic, colored red if drifted
+        \item Answers: acceleration columns are flagged at a higher rate than gyroscope-only columns. Why? (Hint: gyroscope measures rotation, not linear motion amplitude.)
+    \end{enumerate}
+
+    \fcolorbox{verifyborder}{verifybg}{\begin{minipage}{0.93\textwidth}
+    \textbf{Deliverable:} Script + count table + bar chart + 3-sentence analysis.
+    \end{minipage}}
+\end{frame}
+
+\begin{frame}{Task 3: Apply the Loop to Your Own Project (40\%)}
+    \textbf{Write a 1-page design document for your final project:}
+    \begin{enumerate}
+        \item \textbf{Sensor and raw signal:} what does your device measure? At what rate?
+        \item \textbf{Feature extraction:} what 4--8 features per time window? How long is the window?
+        \item \textbf{Training data:} what are your classes? How do you get labeled examples? What is the bottleneck?
+        \item \textbf{Algorithm choice:} using today's comparison table as reference, which algorithm fits your hardware? Justify with model size and inference time.
+        \item \textbf{Expected drift causes:} list 2 specific physical reasons your distribution shifts over time.
+        \item \textbf{Monitoring:} accuracy-based (if labels available) or KS-based (if not)? Justify.
+    \end{enumerate}
+
+    \begin{alertblock}{This feeds directly into your final project report}
+        The design you write here becomes the MLOps section of your report.
+    \end{alertblock}
+\end{frame}
+
+%==============================================================================
+\section{Reference}
+%==============================================================================
+
+\begin{frame}[shrink=8]{Quick Reference Card}
+    \footnotesize
+    \begin{columns}
+        \column{0.48\textwidth}
+        \textbf{Dataset:}\\
+        UCI HAR --- \texttt{archive.ics.uci.edu/dataset/240}\\
+        10,299 samples $\cdot$ 561 features $\cdot$ 6 classes
+
+        \vspace{0.15cm}
+        \textbf{Files produced today:}
+        \begin{tabular}{ll}
+            \texttt{har\_X\_train.csv} & train features \\
+            \texttt{har\_X\_test.csv}  & test features \\
+            \texttt{har\_y\_train.csv} & train labels \\
+            \texttt{har\_y\_test.csv}  & test labels \\
+            \texttt{rf\_model.pkl}     & trained RF \\
+            \texttt{class\_balance.png} & bar chart \\
+            \texttt{feature\_scatter.png} & 2D scatter \\
+            \texttt{drift\_plot.png}   & drift curve \\
+        \end{tabular}
+
+        \column{0.48\textwidth}
+        \textbf{Key concepts from today:}
+        \begin{tabular}{ll}
+            Training data & labeled sensor windows \\
+            Feature engineering & 561 stats from raw signal \\
+            Subject split & evaluate on new users \\
+            kNN vs RF vs SVM & accuracy + size + speed \\
+            Concept drift & gait scale shift \\
+            KS test & label-free drift detection \\
+            Mixed retraining & old + new labeled data \\
+        \end{tabular}
+
+        \vspace{0.2cm}
+        \textbf{References:}\\
+        {[1]} Anguita et al., \textit{ESANN}, 2013 (UCI HAR dataset)\\
+        {[2]} Menz et al., \textit{Age \& Ageing}, 32(1), 2003 (gait drift)\\
+        {[3]} Sculley et al., \textit{NIPS}, 2014 (MLOps, technical debt)\\
+        {[4]} \texttt{scikit-learn.org/stable/user\_guide}\\
+        {[5]} \texttt{scipy.stats.ks\_2samp} documentation
+    \end{columns}
+    \normalsize
+\end{frame}
+
+\begin{frame}{Questions?}
+    \begin{center}
+        \Huge Questions?
+
+        \vspace{0.8cm}
+        \normalsize
+        \textbf{Eduardo Baena}\\
+        \texttt{e.baena@northeastern.edu}
+
+        \vspace{0.5cm}
+        \textit{EECE5155: Wireless Sensor Networks and the Internet of Things}\\
+        Spring 2026
+
+        \vspace{0.4cm}
+        \textbf{Real data $\rightarrow$ Feature engineering $\rightarrow$ Train $\rightarrow$ Compare methods $\rightarrow$ Deploy $\rightarrow$ Drift $\rightarrow$ Retrain}
+
+        \vspace{0.3cm}
+        {\small \textbf{Take-home due:} one week from today on Canvas}
+    \end{center}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,821 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% Theme and colors
+\usetheme{Madrid}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc,fit,backgrounds,decorations.pathmorphing,patterns}
+\usepackage{siunitx}
+
+% Custom colors
+\definecolor{iotblue}{RGB}{0,102,204}
+\definecolor{iotgreen}{RGB}{0,153,76}
+\definecolor{iotred}{RGB}{204,0,0}
+
+% Title information
+\title[EECE5155 -- Module 4 Part 3]{Link Layer Fundamentals}
+\subtitle{Module 4 Part 3: Framing, Error Control, ARQ, and MAC}
+\author{Eduardo Baena}
+\date{Spring 2026}
+\institute{Northeastern University\\Department of Electrical and Computer Engineering\\
+\texttt{e.baena@northeastern.edu}}
+
+\begin{document}
+
+%==============================================================================
+% Title Slide
+%==============================================================================
+\begin{frame}
+    \titlepage
+    \vspace{-1cm}
+    \begin{center}
+        \textbf{EECE5155: Wireless Sensor Networks and the Internet of Things}
+    \end{center}
+\end{frame}
+
+%==============================================================================
+% Learning Objectives
+%==============================================================================
+\begin{frame}{Learning Objectives}
+    \textbf{By the end of this module, you should be able to:}
+    \begin{enumerate}
+        \item \textbf{Explain} why the Link Layer exists and what problems it solves
+        \item \textbf{Compare} FEC vs detection+retransmission tradeoffs quantitatively
+        \item \textbf{Analyze} Stop-and-Wait vs Sliding Window efficiency
+        \item \textbf{Classify} MAC protocols and explain when each is appropriate
+        \item \textbf{Calculate} ALOHA and CSMA throughput limits
+        \item \textbf{Design} energy-aware MAC strategies for IoT applications
+    \end{enumerate}
+\end{frame}
+
+%==============================================================================
+% Outline
+%==============================================================================
+\begin{frame}{Module Outline}
+    \begin{enumerate}
+        \item \textbf{Block A:} From PHY to Link -- Making Bits Usable
+        \item \textbf{Block B:} Reliability I -- Detect vs Correct
+        \item \textbf{Block C:} Reliability II -- ARQ and Flow Control
+        \item \textbf{Block D:} MAC Fundamentals -- Collisions, Metrics, Taxonomy
+        \item \textbf{Block E:} Contention MACs -- ALOHA $\rightarrow$ CSMA/CA
+        \item \textbf{Block F:} Energy-Aware MAC -- Sleeping to Survive
+    \end{enumerate}
+\end{frame}
+
+%##############################################################################
+% BLOCK A: FROM PHY TO LINK
+%##############################################################################
+\section{Block A: From PHY to Link}
+
+\begin{frame}{Protocol Stack: Per-Hop vs End-to-End}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{Key distinction:}
+            \begin{itemize}
+                \item \textbf{PHY:} Moves signals (bits)
+                \item \textbf{Link:} Makes a \emph{link} usable
+                \item \textbf{Network:} Routes across links
+                \item \textbf{Transport:} End-to-end reliability
+            \end{itemize}
+            
+            \vspace{0.3cm}
+            \begin{alertblock}{Link Layer Scope}
+                Per-hop: only between directly connected nodes
+            \end{alertblock}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Layer responsibilities:}
+            \begin{itemize}
+                \item Application: end-to-end
+                \item Transport: end-to-end
+                \item Network: end-to-end routing
+                \item \textbf{Link: per-hop}
+                \item Physical: per-hop
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Link Layer: What It Does}
+    \textbf{The Physical Layer gives you:}
+    \begin{itemize}
+        \item A stream of bits with \textbf{no guarantee} of boundaries
+        \item \textbf{No guarantee} of correctness
+        \item \textbf{No identification} of who it belongs to
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    \textbf{The Link Layer provides:}
+    \begin{enumerate}
+        \item \textbf{Framing:} Boundaries (start, end) for data units
+        \item \textbf{Addressing:} Who sent it, who should receive it
+        \item \textbf{Error control:} Detect/correct transmission errors
+        \item \textbf{Flow control:} Prevent overwhelming the receiver
+        \item \textbf{Medium access:} Coordinate who transmits when
+    \end{enumerate}
+    
+    \begin{block}{Why PHY + Link Together?}
+        IoT standards often standardize both because interoperability depends on sharing the same ``on-the-air'' rules.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Link Layer in IoT Standards}
+    \begin{table}
+        \centering
+        \begin{tabular}{@{}lll@{}}
+            \toprule
+            \textbf{Standard} & \textbf{PHY} & \textbf{Link Layer} \\
+            \midrule
+            IEEE 802.15.4 & O-QPSK, BPSK & CSMA/CA, GTS \\
+            Zigbee/Thread & Uses 802.15.4 & Adds mesh routing \\
+            BLE & GFSK & Adaptive freq. hopping \\
+            LoRa/LoRaWAN & CSS modulation & ALOHA-based \\
+            Wi-Fi (802.11) & OFDM & CSMA/CA + RTS/CTS \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    
+    \begin{exampleblock}{802.15.4 / Zigbee / Thread}
+        Link layer framing and MAC addressing let devices share a low-power channel and still know ``who sent what.''
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Framing: Creating Structure from Bits}
+    \textbf{Problem:} Raw bit stream has no boundaries
+    
+    \textbf{Solution:} Organize bits into \textbf{frames}
+    
+    \vspace{0.3cm}
+    \textbf{Frame structure:}
+    \begin{itemize}
+        \item \textbf{Preamble:} Allows receiver to synchronize
+        \item \textbf{Sync:} Start of frame delimiter
+        \item \textbf{Header:} Addresses, length, control info
+        \item \textbf{Payload:} Actual data
+        \item \textbf{Trailer:} Error detection (CRC/checksum)
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    \begin{exampleblock}{Wi-Fi Example}
+        Frames include fields for synchronization and channel training. Without these, receivers can't detect frame start or equalize the channel.
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Frame Header Fields}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{PHY Header:}
+            \begin{itemize}
+                \item Sync sequence: timing recovery
+                \item Training/pilot: channel estimation
+                \item Length: frame size indicator
+            \end{itemize}
+            
+            \textbf{MAC Header:}
+            \begin{itemize}
+                \item Source address
+                \item Destination address
+                \item Frame type (Data, ACK, control)
+                \item Sequence number
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Trailer:}
+            \begin{itemize}
+                \item CRC/Checksum for error detection
+            \end{itemize}
+            
+            \vspace{0.3cm}
+            \begin{block}{Block A Summary}
+                PHY provides raw bits; Link Layer provides \textbf{structure}, \textbf{addressing}, and \textbf{error detection}.
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+%##############################################################################
+% BLOCK B: ERROR CONTROL
+%##############################################################################
+\section{Block B: Error Control}
+
+\begin{frame}{Why Error Control?}
+    \textbf{Wireless is imperfect. The Link Layer shouldn't pass corrupted data upward.}
+    
+    \vspace{0.3cm}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{Error sources:}
+            \begin{itemize}
+                \item Noise corrupts bits
+                \item Fading causes signal variations
+                \item Interference from other transmitters
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Bit Error Rate (BER):}
+            \begin{itemize}
+                \item Probability a bit is flipped
+                \item Typical: $10^{-3}$ to $10^{-9}$
+                \item Example: BER=$10^{-6}$, 1 Mbit $\rightarrow$ $\sim$1 error
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Two Fundamental Strategies}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{Forward Error Correction (FEC):}
+            \begin{itemize}
+                \item Add redundancy \textbf{up front}
+                \item Receiver can \textbf{correct} errors
+                \item No retransmission needed
+                \item Cost: always send extra bits
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Detection + Retransmission:}
+            \begin{itemize}
+                \item Detect errors (CRC/checksum)
+                \item Request retransmission (ARQ)
+                \item Lower overhead when channel clean
+                \item Cost: delay for retransmissions
+            \end{itemize}
+        \end{column}
+    \end{columns}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{The Tradeoff}
+        Redundancy reduces retransmissions, but also reduces useful throughput because you send extra bits.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{FEC Basics: Code Rate and Distance}
+    \textbf{Terminology:}
+    \begin{itemize}
+        \item $m$ = message bits, $r$ = redundant bits, $n = m + r$ = codeword
+        \item \textbf{Code rate} $R = m/n$ (efficiency)
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Hamming distance} $d_{min}$: minimum bit differences between valid codewords
+    
+    \vspace{0.2cm}
+    \begin{block}{Fundamental Rules}
+        \begin{itemize}
+            \item To \textbf{detect} up to $d$ errors: need $d_{min} \geq d + 1$
+            \item To \textbf{correct} up to $d$ errors: need $d_{min} \geq 2d + 1$
+        \end{itemize}
+    \end{block}
+    
+    \begin{exampleblock}{Example: Hamming(7,4)}
+        $m=4$ data bits, $r=3$ parity bits, $R = 4/7 \approx 0.57$, $d_{min}=3$ $\rightarrow$ corrects 1 bit
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Numeric Example: Parity vs FEC Overhead}
+    \textbf{Scenario:} BER = $10^{-6}$, Data = 1 Mbit, Block = 1000 bits, Blocks = 1000
+    
+    \vspace{0.3cm}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{FEC (1-bit correction):}
+            \begin{itemize}
+                \item $\sim$10 redundant bits/block
+                \item Total: $10 \times 1000 = $ \textbf{10,000 bits}
+                \item Always paid
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Parity + Retransmission:}
+            \begin{itemize}
+                \item 1 parity bit/block = 1000 bits
+                \item $\sim$1 reTX = 1001 bits
+                \item Total: $\sim$\textbf{2,001 bits}
+            \end{itemize}
+        \end{column}
+    \end{columns}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{Punchline}
+        When channel is clean, detection + rare retransmission is \textbf{cheaper} than always paying FEC overhead.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{When Does FEC Win?}
+    \textbf{FEC better when:}
+    \begin{itemize}
+        \item Channel is noisy (high BER)
+        \item Retransmissions expensive (latency, energy)
+        \item Real-time constraints
+        \item Broadcast/multicast
+    \end{itemize}
+    
+    \textbf{Detection + ARQ better when:}
+    \begin{itemize}
+        \item Channel is clean (low BER)
+        \item Latency tolerable
+        \item Variable channel conditions
+    \end{itemize}
+    
+    \begin{block}{IoT Reality}
+        Many protocols use \textbf{both}: light FEC + detection + ARQ
+    \end{block}
+\end{frame}
+
+\begin{frame}{Burst Errors and Interleaving}
+    \textbf{Problem:} Wireless errors often come in \textbf{bursts} (fading)
+    
+    \textbf{Solution: Interleaving} -- spread bits across time
+    \begin{itemize}
+        \item Burst error becomes distributed single errors
+        \item Each codeword sees 1--2 errors $\rightarrow$ correctable
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    \textbf{CRC (Cyclic Redundancy Check):}
+    \begin{itemize}
+        \item Most common error detection in IoT
+        \item CRC-32: detects all single/double-bit, all odd errors, most bursts $\leq$ 32 bits
+        \item Used in Ethernet, 802.15.4, BLE
+    \end{itemize}
+    
+    \begin{block}{Block B Summary}
+        FEC vs Detection tradeoff depends on channel + application. CRC is standard detection.
+    \end{block}
+\end{frame}
+
+%##############################################################################
+% BLOCK C: ARQ AND FLOW CONTROL
+%##############################################################################
+\section{Block C: ARQ and Flow Control}
+
+\begin{frame}{Automatic Repeat reQuest (ARQ)}
+    \textbf{If frames can be corrupted or lost, we need feedback.}
+    
+    \vspace{0.3cm}
+    \textbf{ARQ components:}
+    \begin{itemize}
+        \item \textbf{ACK:} Positive acknowledgment (``I got it'')
+        \item \textbf{NACK:} Negative acknowledgment (``error detected'')
+        \item \textbf{Timeout:} If no response, assume lost
+        \item \textbf{Sequence numbers:} Identify frames, detect duplicates
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    \textbf{Flow control:} Prevent sender from overwhelming receiver
+    \begin{itemize}
+        \item Stop-and-Wait: send one, wait for ACK
+        \item Sliding Window: send up to $W$ before waiting
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Stop-and-Wait: Simple but Inefficient}
+    \textbf{Send frame, wait for ACK, repeat}
+    
+    \vspace{0.3cm}
+    \textbf{Timing:}
+    \begin{itemize}
+        \item $T_{ptx}$: Packet transmission time
+        \item $T_{prop}$: Propagation delay
+        \item $T_{atx}$: ACK transmission time
+    \end{itemize}
+    
+    \textbf{Channel utilization:}
+    \[
+    U = \frac{T_{ptx}}{T_{ptx} + 2T_{prop} + T_{atx}}
+    \]
+    
+    \begin{alertblock}{Problem}
+        When $T_{prop} >> T_{ptx}$, utilization collapses!
+        
+        Example: $T_{ptx}=1$ms, $T_{prop}=10$ms $\Rightarrow U \approx 4.7\%$
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Sliding Window: Pipeline the Channel}
+    \textbf{Solution:} Send multiple frames before ACK arrives
+    
+    \vspace{0.3cm}
+    \textbf{Key parameters:}
+    \begin{itemize}
+        \item \textbf{SWS:} Sender Window Size (max frames in flight)
+        \item \textbf{RWS:} Receiver Window Size (max to buffer)
+        \item \textbf{LAR:} Last ACK Received
+        \item \textbf{LFS:} Last Frame Sent
+        \item Constraint: $LFS - LAR \leq SWS$
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Optimal window:} $W = \lceil RTT \times Bandwidth / FrameSize \rceil$
+    
+    \begin{exampleblock}{Example}
+        1 Mbps, RTT=20ms, Frame=1000 bits $\Rightarrow W = 20$ frames needed
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{ACK Strategies and IoT Examples}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{Cumulative ACK:}
+            \begin{itemize}
+                \item ``ACK N'' = got all up to N
+                \item Go-Back-N on error
+            \end{itemize}
+            
+            \textbf{Selective ACK:}
+            \begin{itemize}
+                \item ACK individual frames
+                \item Only retransmit missing
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{IoT Examples:}
+            \begin{itemize}
+                \item LoRaWAN Class A: effectively S\&W
+                \item Wi-Fi: Block ACK for throughput
+            \end{itemize}
+        \end{column}
+    \end{columns}
+    
+    \begin{block}{Block C Summary}
+        S\&W is simple but wasteful. Sliding window pipelines for efficiency. Match complexity to needs.
+    \end{block}
+\end{frame}
+
+%##############################################################################
+% BLOCK D: MAC FUNDAMENTALS
+%##############################################################################
+\section{Block D: MAC Fundamentals}
+
+\begin{frame}{The Medium Access Control Problem}
+    \textbf{MAC decides: when to talk and when to listen.}
+    
+    \vspace{0.3cm}
+    \textbf{The challenge:}
+    \begin{itemize}
+        \item Multiple nodes share one channel
+        \item Can't TX and RX simultaneously
+        \item Transmitter doesn't hear collisions
+        \item Collisions waste energy and time
+    \end{itemize}
+    
+    \begin{alertblock}{Key Insight}
+        Collisions happen \textbf{at the receiver}. Sender learns after the fact (missing ACK).
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{MAC Performance Metrics}
+    \begin{itemize}
+        \item \textbf{Throughput ($S$):} Successful data / channel capacity
+        \item \textbf{Delay:} Packet ready to successful delivery
+        \item \textbf{Fairness:} Equal access for all nodes?
+        \item \textbf{Energy:} Wasted on collisions, idle listening?
+    \end{itemize}
+    
+    \textbf{Key terms:}
+    \begin{itemize}
+        \item \textbf{Offered load ($G$):} TX attempts per frame time
+        \item \textbf{Backoff:} Random wait after collision
+        \item \textbf{Carrier sense:} Listen before transmit
+    \end{itemize}
+    
+    \begin{block}{IoT Priority}
+        Traditional networks optimize throughput. IoT MACs prioritize \textbf{energy} and \textbf{latency}.
+    \end{block}
+\end{frame}
+
+\begin{frame}{MAC Protocol Taxonomy}
+    \textbf{Major categories:}
+    
+    \vspace{0.3cm}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{Scheduled (Contention-free):}
+            \begin{itemize}
+                \item TDMA, FDMA, CDMA
+                \item No collisions
+                \item Requires coordination
+                \item Good for predictable traffic
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Contention-based:}
+            \begin{itemize}
+                \item ALOHA, CSMA
+                \item Collisions possible
+                \item Distributed, simple
+                \item Good for bursty traffic
+            \end{itemize}
+        \end{column}
+    \end{columns}
+    
+    \vspace{0.3cm}
+    \textbf{IoT examples:}
+    \begin{itemize}
+        \item Scheduled: periodic sensor reporting in coordinated network
+        \item Contention: motion-triggered sensors, alarms (bursty, unpredictable)
+    \end{itemize}
+\end{frame}
+
+%##############################################################################
+% BLOCK E: CONTENTION MACs
+%##############################################################################
+\section{Block E: Contention MACs}
+
+\begin{frame}{Pure ALOHA}
+    \textbf{Simplest MAC:} Transmit whenever you have data
+    
+    \vspace{0.3cm}
+    \textbf{Collision:} If another transmission overlaps $\rightarrow$ both lost
+    
+    \textbf{Vulnerable period:} $2 \times$ frame time (before and during)
+    
+    \vspace{0.3cm}
+    \textbf{Throughput:}
+    \[
+    S = G \cdot e^{-2G}
+    \]
+    
+    \textbf{Maximum:} At $G = 0.5$: $S_{max} = \frac{1}{2e} \approx \mathbf{0.18}$ (18\%)
+    
+    \begin{alertblock}{Result}
+        Best case: only 18\% of channel used for successful transmissions!
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Slotted ALOHA}
+    \textbf{Improvement:} Synchronize transmissions to time slots
+    
+    \vspace{0.3cm}
+    \textbf{Vulnerable period:} Only 1 slot (half of Pure ALOHA)
+    
+    \vspace{0.3cm}
+    \textbf{Throughput:}
+    \[
+    S = G \cdot e^{-G}
+    \]
+    
+    \textbf{Maximum:} At $G = 1$: $S_{max} = \frac{1}{e} \approx \mathbf{0.37}$ (37\%)
+    
+    \begin{block}{Teaching Punchline}
+        Slotted doubles peak throughput by halving vulnerable time, but needs synchronization.
+    \end{block}
+    
+    \textbf{IoT usage:} LoRaWAN uses ALOHA-like access (Class A)
+\end{frame}
+
+\begin{frame}{CSMA: Listen Before Talk}
+    \textbf{Carrier Sense Multiple Access:} Check if channel is busy first
+    
+    \vspace{0.3cm}
+    \textbf{Variants:}
+    \begin{itemize}
+        \item \textbf{1-persistent:} If idle, transmit immediately
+        \item \textbf{Non-persistent:} If busy, wait random time, retry
+        \item \textbf{p-persistent:} If idle, transmit with probability $p$
+    \end{itemize}
+    
+    \vspace{0.3cm}
+    \textbf{Improvement over ALOHA:}
+    \begin{itemize}
+        \item Avoids transmitting during ongoing transmission
+        \item Still can't prevent all collisions (propagation delay)
+    \end{itemize}
+    
+    \textbf{Throughput:} Significantly better than ALOHA (see comparison)
+\end{frame}
+
+\begin{frame}{CSMA Throughput Comparison}
+    \begin{center}
+        \textbf{Throughput vs Offered Load}
+    \end{center}
+    
+    \begin{table}
+        \centering
+        \begin{tabular}{@{}lcc@{}}
+            \toprule
+            \textbf{Protocol} & \textbf{Max $S$} & \textbf{At $G$} \\
+            \midrule
+            Pure ALOHA & 0.18 & 0.5 \\
+            Slotted ALOHA & 0.37 & 1.0 \\
+            1-persistent CSMA & $\sim$0.53 & varies \\
+            Non-persistent CSMA & $\sim$0.81 & varies \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    
+    \begin{block}{Key Insight}
+        CSMA improves throughput significantly, but wireless can't do collision detection reliably (unlike Ethernet). Solution: \textbf{Collision Avoidance}.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Why CSMA/CD Fails in Wireless}
+    \textbf{CSMA/CD (Collision Detection):} Detect collision while transmitting, abort
+    
+    \vspace{0.3cm}
+    \textbf{Works in wired (Ethernet) because:}
+    \begin{itemize}
+        \item Can transmit and listen simultaneously
+        \item Strong received signal
+    \end{itemize}
+    
+    \textbf{Fails in wireless because:}
+    \begin{itemize}
+        \item Own transmission drowns out others (near-far problem)
+        \item Can't hear collision at receiver
+    \end{itemize}
+    
+    \begin{alertblock}{Solution: CSMA/CA}
+        Collision \textbf{Avoidance} instead of Detection
+        \begin{itemize}
+            \item Try to avoid collisions before they happen
+            \item Use ACKs to confirm success
+        \end{itemize}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Hidden and Exposed Terminal Problems}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \textbf{Hidden Terminal:}
+            \begin{itemize}
+                \item A and C can't hear each other
+                \item Both sense channel idle
+                \item Both transmit to B $\rightarrow$ collision!
+            \end{itemize}
+            
+            \vspace{0.2cm}
+            A $\leftrightarrow$ B $\leftrightarrow$ C
+            
+            (A hidden from C)
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \textbf{Exposed Terminal:}
+            \begin{itemize}
+                \item B transmitting to A
+                \item C hears B, thinks busy
+                \item C can't TX to D (unnecessarily blocked)
+            \end{itemize}
+            
+            \vspace{0.2cm}
+            A $\leftrightarrow$ B $\leftrightarrow$ C $\leftrightarrow$ D
+        \end{column}
+    \end{columns}
+    
+    \vspace{0.3cm}
+    \begin{block}{Solution: RTS/CTS}
+        Request-to-Send / Clear-to-Send handshake
+    \end{block}
+\end{frame}
+
+\begin{frame}{CSMA/CA with RTS/CTS}
+    \textbf{Protocol:}
+    \begin{enumerate}
+        \item Sender: sense channel, send \textbf{RTS} (small)
+        \item Receiver: if clear, reply \textbf{CTS}
+        \item All who hear RTS or CTS: set NAV (silent period)
+        \item Sender: transmit data
+        \item Receiver: send ACK
+    \end{enumerate}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{RTS/CTS Tradeoff}
+        \textbf{Overhead:} RTS/CTS adds delay for every transmission
+        
+        \textbf{Helps when:} Collisions would waste long data frames
+        
+        \textbf{Hurts when:} Network is mostly empty (overhead dominates)
+    \end{alertblock}
+    
+    \textbf{IoT example:} Dense Wi-Fi apartment -- hidden terminals common, RTS/CTS reduces expensive data collisions
+\end{frame}
+
+%##############################################################################
+% BLOCK F: ENERGY-AWARE MAC
+%##############################################################################
+\section{Block F: Energy-Aware MAC}
+
+\begin{frame}{The Idle Listening Problem}
+    \textbf{Problem:} Radio ``on'' consumes significant power even when not transmitting
+    
+    \vspace{0.3cm}
+    \textbf{Typical power consumption:}
+    \begin{itemize}
+        \item TX: 30--100 mW
+        \item RX: 20--50 mW
+        \item Idle listening: 15--40 mW (nearly same as RX!)
+        \item Sleep: 1--10 $\mu$W
+    \end{itemize}
+    
+    \begin{alertblock}{Key Insight}
+        Idle listening is expensive. IoT devices can't afford to keep radio on waiting for packets.
+    \end{alertblock}
+    
+    \textbf{Solution:} Duty cycling -- periodic listen/sleep
+\end{frame}
+
+\begin{frame}{S-MAC: Sensor MAC}
+    \textbf{S-MAC concept:} Coordinated sleep schedules
+    
+    \vspace{0.3cm}
+    \textbf{Duty cycle:}
+    \begin{itemize}
+        \item Listen window: e.g., 200 ms
+        \item Sleep period: e.g., 2 s
+        \item Duty cycle: $200/(200+2000) = 10\%$
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Synchronization:}
+    \begin{itemize}
+        \item Nodes exchange SYNC packets
+        \item Neighbors coordinate schedules
+        \item Nodes become synchronizers or followers
+    \end{itemize}
+    
+    \begin{block}{Tradeoff}
+        \textbf{Energy:} improves (sleep most of time)
+        
+        \textbf{Latency:} worsens (may wait for next listen window)
+    \end{block}
+\end{frame}
+
+\begin{frame}{S-MAC Operation}
+    \textbf{Listen period structure:}
+    \begin{enumerate}
+        \item SYNC: exchange schedule info
+        \item RTS/CTS/DATA/ACK: actual communication
+    \end{enumerate}
+    
+    \vspace{0.3cm}
+    \textbf{Collision avoidance:} Still uses CSMA/CA during listen
+    
+    \vspace{0.3cm}
+    \begin{exampleblock}{IoT Example: Battery Environmental Sensor}
+        \begin{itemize}
+            \item Samples every minute, reports occasionally
+            \item Keeping radio always-on is pointless
+            \item Duty cycling matches application pattern
+            \item Cost: downlink commands wait for next listen window
+        \end{itemize}
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Energy-Aware MAC Summary}
+    \begin{block}{Key Takeaways}
+        \begin{enumerate}
+            \item Idle listening dominates energy in traditional MACs
+            \item Duty cycling trades latency for energy
+            \item S-MAC: coordinated schedules, local synchronization
+            \item Choose duty cycle based on application requirements
+        \end{enumerate}
+    \end{block}
+    
+    \vspace{0.3cm}
+    \textbf{Other energy-aware MACs:}
+    \begin{itemize}
+        \item \textbf{B-MAC:} Low-power listening, preamble sampling
+        \item \textbf{X-MAC:} Short preambles, early ACK
+        \item \textbf{ContikiMAC:} Phase-lock, ultra-low duty cycle
+    \end{itemize}
+\end{frame}
+
+%##############################################################################
+% SUMMARY
+%##############################################################################
+\section{Summary}
+
+\begin{frame}{Module 4 Part 3: Summary}
+    \begin{enumerate}
+        \item \textbf{Block A:} Link Layer creates structure from raw bits (framing, addressing)
+        \item \textbf{Block B:} Error control -- FEC vs Detection tradeoff (overhead vs reTX)
+        \item \textbf{Block C:} ARQ provides reliability; Sliding Window improves efficiency
+        \item \textbf{Block D:} MAC coordinates channel access; taxonomy: scheduled vs contention
+        \item \textbf{Block E:} ALOHA (18\%/37\%) $\rightarrow$ CSMA $\rightarrow$ CSMA/CA + RTS/CTS
+        \item \textbf{Block F:} Energy-aware MAC: duty cycling trades latency for battery life
+    \end{enumerate}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{Design Principle}
+        Match Link Layer choices to your application: throughput vs energy vs latency vs complexity.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Questions?}
+    \begin{center}
+        \Huge\textbf{?}
+    \end{center}
+\end{frame}
+
+\end{document}

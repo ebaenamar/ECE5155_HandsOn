@@ -1,0 +1,1237 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% Theme and colors
+\usetheme{Madrid}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc,fit,backgrounds,decorations.pathmorphing,patterns}
+\usepackage{siunitx}
+
+% Custom colors
+\definecolor{questionbg}{RGB}{255,248,220}
+\definecolor{questionborder}{RGB}{255,193,7}
+\definecolor{solutionbg}{RGB}{220,255,220}
+\definecolor{solutionborder}{RGB}{40,167,69}
+
+% Title information
+\title[EECE5155 -- Practical Exercises]{Practical Exercises and Design Problems}
+\subtitle{Modules 1-4 Review: From Sensing to Communication}
+\author{Eduardo Baena}
+\date{Spring 2026}
+\institute{Northeastern University\\Department of Electrical and Computer Engineering\\
+\texttt{e.baena@northeastern.edu}}
+
+\begin{document}
+
+% Title slide
+\begin{frame}
+    \titlepage
+    \vspace{-1cm}
+    \begin{center}
+        \textbf{EECE5155: Wireless Sensor Networks and the Internet of Things}
+    \end{center}
+\end{frame}
+
+% Overview
+\begin{frame}{Exercise Overview}
+    \textbf{These exercises integrate concepts from Modules 1-4:}
+    
+    \vspace{0.3cm}
+    \begin{enumerate}
+        \item \textbf{Module 1:} Data Acquisition (ADC, sampling, buses)
+        \item \textbf{Module 2:} Engineering Project Characterization
+        \item \textbf{Module 3:} Local Processing (MCU selection, power)
+        \item \textbf{Module 4:} Data Communication (energy, protocols, link layer)
+    \end{enumerate}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{Goal: Learn to THINK About Tradeoffs}
+        These exercises teach you \textbf{how to approach} IoT design decisions, not just calculate answers.
+        
+        \vspace{0.2cm}
+        For each problem, ask yourself:
+        \begin{itemize}
+            \item What are the \textbf{constraints} (must-have requirements)?
+            \item What are the \textbf{competing objectives} (tradeoffs)?
+            \item What \textbf{assumptions} am I making?
+        \end{itemize}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{The Engineering Thinking Process}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Step 1: Identify Constraints}
+        \begin{itemize}
+            \item What MUST be satisfied? (non-negotiable)
+            \item Example: ``Resolution $\leq$ 0.1°C'' is a constraint
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{Step 2: Identify Objectives}
+        \begin{itemize}
+            \item What do we WANT to optimize?
+            \item Usually: cost, power, size, complexity
+            \item These compete with each other!
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \textbf{Step 3: Map the Tradeoff Space}
+        \begin{itemize}
+            \item What options satisfy constraints?
+            \item How do they compare on objectives?
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{Step 4: Make \& Justify Decision}
+        \begin{itemize}
+            \item Which objective matters most here?
+            \item Document your reasoning!
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.4cm}
+    \begin{exampleblock}{Key Insight}
+        There is rarely a ``best'' answer---only the best answer \textbf{for your specific context}.
+    \end{exampleblock}
+\end{frame}
+
+%==============================================================================
+\section{Module 1: Data Acquisition Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 1.1: ADC Selection for Vaccine Cold Chain}
+    \begin{block}{Scenario: WHO Vaccine Storage Compliance}
+        You're designing a temperature logger for vaccine cold chain monitoring in rural clinics.
+        
+        \vspace{0.2cm}
+        \textbf{Regulatory requirement} (WHO PQS E006): Vaccines must stay between $+2^\circ$C and $+8^\circ$C. Logger must detect excursions $\geq 0.5^\circ$C outside this range.
+        
+        \vspace{0.2cm}
+        \textbf{Your sensor:} LM35 analog temperature sensor
+        \begin{itemize}
+            \item Output: 10mV/$^\circ$C, linear from $-40^\circ$C to $+110^\circ$C
+            \item At 0$^\circ$C outputs 0V (negative temps need negative supply)
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Your MCU options:} STM32L0 has internal 12-bit ADC. External ADS1115 is 16-bit but adds \$2 cost and I2C complexity.
+    \end{block}
+    
+    \vspace{0.2cm}
+    \textbf{Question:} Which ADC do you choose and why? What are the tradeoffs?
+\end{frame}
+
+\begin{frame}{Exercise 1.1: Solution -- Thinking Process}
+    \textbf{Step 1: What is the CONSTRAINT?}
+    \begin{itemize}
+        \item Must detect 0.5$^\circ$C excursions $\Rightarrow$ resolution must be $\leq$ 0.5$^\circ$C
+        \item Actually, for reliable detection: resolution $\leq$ 0.25$^\circ$C (2x margin)
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Step 2: Does internal ADC meet constraint?}
+    \begin{itemize}
+        \item Relevant range: 0$^\circ$C to +15$^\circ$C (with margin) $\rightarrow$ 0V to 150mV
+        \item 12-bit ADC, $V_{ref}$ = 3.3V: LSB = 3.3V/4096 = 0.806mV
+        \item Temperature resolution: 0.806mV $\div$ 10mV/$^\circ$C = \textbf{0.08$^\circ$C}
+        \item 0.08$^\circ$C $<$ 0.25$^\circ$C $\checkmark$ \textbf{Constraint satisfied!}
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Step 3: Tradeoff analysis}
+    \begin{center}
+    \begin{tabular}{lcc}
+        \toprule
+        & \textbf{Internal 12-bit} & \textbf{External 16-bit} \\
+        \midrule
+        Resolution & 0.08$^\circ$C (OK) & 0.005$^\circ$C (overkill) \\
+        Cost & \$0 & +\$2 \\
+        Complexity & None & I2C driver needed \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Exercise 1.1: Solution -- Decision}
+    \begin{alertblock}{Decision: Use Internal 12-bit ADC}
+        The 16-bit ADC provides 16x better resolution than needed. This is \textbf{over-engineering}.
+    \end{alertblock}
+    
+    \vspace{0.3cm}
+    \textbf{Engineering Justification:}
+    \begin{enumerate}
+        \item Internal ADC meets WHO requirement with 6x margin (0.08$^\circ$C vs 0.5$^\circ$C)
+        \item External ADC adds cost (\$2 $\times$ 10,000 units = \$20,000)
+        \item External ADC adds failure point (I2C bus, solder joints)
+        \item Simpler design = faster regulatory approval
+    \end{enumerate}
+    
+    \vspace{0.3cm}
+    \begin{exampleblock}{Key Lesson}
+        \textbf{``Good enough'' beats ``perfect''} when it costs less and is more reliable.
+        
+        Always ask: \textit{Does the extra capability justify the extra cost/complexity?}
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Exercise 1.2: Sampling Rate for Pump Predictive Maintenance}
+    \begin{block}{Scenario: Chemical Plant Centrifugal Pump}
+        A chemical plant wants to detect bearing wear in centrifugal pumps \textbf{before} failure. Unplanned downtime costs \$50,000/hour.
+        
+        \vspace{0.2cm}
+        \textbf{Domain knowledge} (from vibration analysis literature):
+        \begin{itemize}
+            \item Pump runs at 1800 RPM (30 Hz rotation)
+            \item Bearing defects appear at 3-10x rotation frequency (90-300 Hz)
+            \item Gear mesh frequencies up to 1 kHz
+            \item \textbf{Rule of thumb:} Capture up to 3rd harmonic of highest frequency
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Constraints:}
+        \begin{itemize}
+            \item Battery-powered sensor (solar recharge, but minimize consumption)
+            \item MCU options: 10kSPS (lowest power), 50kSPS, 100kSPS (highest power)
+        \end{itemize}
+    \end{block}
+    
+    \textbf{Question:} What sampling rate do you choose? What could go wrong with each choice?
+\end{frame}
+
+\begin{frame}{Exercise 1.2: Solution -- The Hidden Tradeoff}
+    \textbf{Step 1: Calculate minimum $f_s$ (the easy part)}
+    \begin{itemize}
+        \item Max frequency: 1 kHz, 3rd harmonic = 3 kHz
+        \item Nyquist: $f_s > 2 \times 3\text{kHz} = 6\text{kHz}$ $\Rightarrow$ 10kSPS works!
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Step 2: But wait---what about the anti-aliasing filter?}
+    \begin{itemize}
+        \item At 10kSPS, you need a filter that passes 3kHz but blocks $>$5kHz
+        \item Transition band = 5kHz - 3kHz = 2kHz (67\% of passband!)
+        \item This requires a \textbf{steep filter} (expensive, adds phase distortion)
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Step 3: The real tradeoff}
+    \begin{center}
+    \begin{tabular}{lccc}
+        \toprule
+        & \textbf{10kSPS} & \textbf{50kSPS} & \textbf{100kSPS} \\
+        \midrule
+        Nyquist & Barely OK & 8x margin & 16x margin \\
+        Filter design & Hard (steep) & Easy (gentle) & Trivial \\
+        Power & Lowest & Medium & Highest \\
+        Data volume & 20 kB/s & 100 kB/s & 200 kB/s \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}{Exercise 1.2: Solution -- Context-Dependent Decision}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \begin{alertblock}{If power is critical:}
+            Choose \textbf{10kSPS} + invest in good analog filter.
+            
+            \vspace{0.1cm}
+            Accept: Higher filter cost, potential phase issues.
+        \end{alertblock}
+        
+        \vspace{0.2cm}
+        \begin{exampleblock}{If simplicity matters:}
+            Choose \textbf{50kSPS} with simple RC filter.
+            
+            \vspace{0.1cm}
+            Accept: 5x more power, 5x more data.
+        \end{exampleblock}
+        
+        \column{0.5\textwidth}
+        \textbf{For THIS scenario:}
+        
+        Solar recharge available $\Rightarrow$ power is constrained but not extreme.
+        
+        \$50k/hour downtime $\Rightarrow$ reliability matters more than power.
+        
+        \vspace{0.3cm}
+        \textbf{Decision: 50kSPS}
+        \begin{itemize}
+            \item Simple filter = fewer failure modes
+            \item Margin for unexpected frequencies
+            \item Data volume manageable with compression
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.3cm}
+    \begin{block}{Key Lesson}
+        Nyquist tells you the \textbf{minimum}. Real engineering considers \textbf{filter design}, \textbf{power}, and \textbf{reliability} together.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Exercise 1.3: Bus Selection for Commercial Greenhouse}
+    \begin{block}{Scenario: Multi-Zone Climate Control}
+        A commercial greenhouse operator needs temperature monitoring across 8 growing zones for automated HVAC control. Installation will be done by electricians, not engineers.
+        
+        \vspace{0.2cm}
+        \textbf{Physical layout:}
+        \begin{itemize}
+            \item Zones spread across 20m $\times$ 50m greenhouse
+            \item Longest cable run: 25m from controller
+            \item Environment: High humidity (90\%+), fertilizer chemicals in air
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Requirements:}
+        \begin{itemize}
+            \item 1 reading per zone per second (for PID control loop)
+            \item Easy to add/remove sensors as zones change
+            \item Maintainable by non-engineers
+        \end{itemize}
+    \end{block}
+    
+    \textbf{Question:} SPI, I2C, or 1-Wire? What factors drive your decision?
+\end{frame}
+
+\begin{frame}{Exercise 1.3: Solution -- Elimination Process}
+    \textbf{Step 1: Which options are physically possible?}
+    
+    \begin{center}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Factor} & \textbf{SPI} & \textbf{I2C} & \textbf{1-Wire} \\
+        \midrule
+        Max cable length & $\sim$1m & $\sim$3m & 100m+ \\
+        25m cable run? & \textcolor{red}{\textbf{NO}} & \textcolor{red}{\textbf{NO}} & \textcolor{green}{\textbf{YES}} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{Distance constraint eliminates SPI and I2C immediately}
+        This is a \textbf{hard constraint}---no amount of optimization makes SPI work at 25m.
+        
+        \vspace{0.1cm}
+        (I2C extenders exist but add cost and complexity---violates ``maintainable by non-engineers'')
+    \end{alertblock}
+    
+    \vspace{0.3cm}
+    \textbf{Step 2: Verify 1-Wire meets other requirements}
+    \begin{itemize}
+        \item Data rate needed: 8 sensors $\times$ 16 bits $\times$ 1 Hz = 128 bps
+        \item 1-Wire provides: 16 kbps $\Rightarrow$ 125x margin $\checkmark$
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Exercise 1.3: Solution -- Beyond the Obvious}
+    \textbf{Step 3: Consider installation and maintenance}
+    
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Why 1-Wire is ideal here:}
+        \begin{itemize}
+            \item Each sensor has unique 64-bit ROM ID
+            \item No address conflicts, no configuration
+            \item ``Plug and play'' for electricians
+            \item Single cable = simple installation
+            \item Parasitic power option reduces wiring
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \textbf{Potential issues to plan for:}
+        \begin{itemize}
+            \item Star topology needs hub
+            \item Long stubs cause reflections
+            \item ESD protection needed in harsh environment
+            \item Corrosion in high-humidity $\Rightarrow$ use sealed connectors
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.4cm}
+    \begin{exampleblock}{Recommended Device: DS18B20}
+        \begin{itemize}
+            \item 1-Wire digital temperature sensor, $\pm$0.5$^\circ$C accuracy
+            \item Waterproof probe versions available (critical for greenhouse!)
+            \item \$2-4 per sensor, widely available
+        \end{itemize}
+    \end{exampleblock}
+\end{frame}
+
+%==============================================================================
+\section{Module 2: Engineering Characterization Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 2.1: Signal Characterization -- Vineyard Frost Protection}
+    \begin{block}{Scenario: Napa Valley Vineyard}
+        A vineyard loses \$200k/year to unexpected frost damage. Owner wants a sensor network to trigger frost fans when temperature drops below critical thresholds.
+        
+        \vspace{0.2cm}
+        \textbf{Before choosing ANY hardware, you must characterize the signal:}
+        \begin{enumerate}
+            \item What exactly are you measuring? (not just ``temperature'')
+            \item How fast does it change? (determines sampling rate)
+            \item What accuracy actually matters for the decision?
+            \item What environmental factors could fool your sensor?
+        \end{enumerate}
+    \end{block}
+    
+    \vspace{0.2cm}
+    \begin{alertblock}{This is Module 2 thinking}
+        If you skip characterization, you'll pick hardware based on guesses---a ``maker'' approach, not engineering.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 2.1: Solution -- Research First, Buy Later}
+    \textbf{What the literature tells you} (UC Davis Viticulture reports):
+    
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{Signal characteristics:}
+        \begin{itemize}
+            \item Critical threshold: $-2.2^\circ$C (bud damage)
+            \item Frost events develop over 30-60 minutes
+            \item Temperature varies $\pm$3$^\circ$C across vineyard (microclimate)
+            \item Radiative cooling at 1-2$^\circ$C/hour max
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Design implications:}
+        \begin{itemize}
+            \item Sampling every 5 min is plenty (signal BW $<$ 0.001 Hz)
+            \item Need $\pm$0.5$^\circ$C accuracy near $-2^\circ$C
+            \item Multiple sensors required (spatial variation)
+        \end{itemize}
+        
+        \column{0.45\textwidth}
+        \textbf{Environmental gotchas:}
+        \begin{itemize}
+            \item Direct sunlight heats sensor (need radiation shield)
+            \item Dew condensation on electronics
+            \item Soil temperature $\neq$ air temperature at bud height (1m)
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \begin{exampleblock}{Key Decision}
+            $\pm$0.5$^\circ$C accuracy $\Rightarrow$ cheap \$2 NTC thermistor is NOT enough (typical $\pm$1$^\circ$C).
+            
+            Need: \textbf{DS18B20} ($\pm$0.5$^\circ$C) or \textbf{SHT31} ($\pm$0.3$^\circ$C).
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Exercise 2.2: Constraint Prioritization -- Urban Air Quality}
+    \begin{block}{Scenario: City Smart Lamp Post Deployment}
+        Boston deploys 500 air quality monitors on lamp posts. Each unit has:
+        \begin{itemize}
+            \item \textbf{Plantower PMS5003} (PM2.5 laser sensor): needs fan, 100mA active
+            \item \textbf{Sensirion SCD41} (CO2): 18mA during measurement
+            \item \textbf{BME280} (temp/humidity): 0.35mA active
+            \item Solar panel (1W) + 6000mAh LiPo battery
+            \item NB-IoT cellular (Quectel BC66): 220mA TX peak
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Requirement:} 5 years maintenance-free.
+        
+        \textbf{Your task:} Before designing anything, identify which constraints will KILL the project if ignored. Rank by severity.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Exercise 2.2: Solution -- Constraint Analysis with Real Numbers}
+    \textbf{Step 1: Which constraint is the ``project killer''?}
+    
+    \vspace{0.2cm}
+    \textbf{Power reality check} (worst case: Boston winter, 8h daylight):
+    \begin{itemize}
+        \item Solar harvest: 1W $\times$ 8h $\times$ 0.5 (clouds) = \textbf{4 Wh/day}
+        \item PMS5003: 100mA $\times$ 5V $\times$ 10s/sample $\times$ 24 samples/day = \textbf{0.033 Wh}
+        \item SCD41: 18mA $\times$ 3.3V $\times$ 5s/meas $\times$ 24/day = \textbf{0.007 Wh}
+        \item NB-IoT: 220mA $\times$ 3.7V $\times$ 2s $\times$ 24/day = \textbf{0.039 Wh}
+        \item Sleep: 50$\mu$A $\times$ 3.7V $\times$ 24h = \textbf{0.004 Wh}
+        \item \textbf{Total: $\sim$0.08 Wh/day $\ll$ 4 Wh solar} $\checkmark$
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \begin{alertblock}{Surprise: Power is NOT the critical constraint!}
+        The real ``project killers'' for 5-year maintenance-free:
+        \begin{enumerate}
+            \item \textbf{PMS5003 laser diode lifetime:} rated 8000 hours $\approx$ 1 year continuous! Must duty-cycle aggressively.
+            \item \textbf{SCD41 CO2 drift:} $\pm$40 ppm/year. After 5 years: $\pm$200 ppm (useless without auto-calibration).
+            \item \textbf{Battery degradation:} LiPo loses 20\% capacity/year at 25$^\circ$C.
+        \end{enumerate}
+    \end{alertblock}
+\end{frame}
+
+%==============================================================================
+\section{Module 3: Local Processing Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 3.1: MCU Power -- What the Datasheet Doesn't Tell You}
+    \begin{block}{Scenario: River Water Level Monitor (USGS deployment)}
+        You need a sensor node that measures water level every 60 seconds and lasts 5 years on a \textbf{Tadiran TL-5930 D-cell lithium battery} (19 Ah, 3.6V).
+        
+        \vspace{0.2cm}
+        Your MCU candidate: \textbf{STM32L072} (Cortex-M0+, ultra-low-power)
+        
+        \vspace{0.2cm}
+        \textbf{Your task:} Look up the STM32L072 datasheet and estimate battery life. But beware---the datasheet gives \textit{ideal} numbers. What's missing?
+    \end{block}
+    
+    \vspace{0.2cm}
+    \textbf{Hints -- where to look:}
+    \begin{itemize}
+        \item DS, Table 22: ``Current consumption in Run mode''
+        \item DS, Table 24: ``Current consumption in Stop mode''
+        \item DS, Table 28: ``Wake-up time from Stop mode''
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Exercise 3.1: Solution -- Datasheet Values}
+    \textbf{From STM32L072 datasheet (DS10182, Rev 6):}
+    \begin{center}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Parameter} & \textbf{Typical} & \textbf{Max} \\
+        \midrule
+        Run @ 32MHz, 3.3V & 3.5 mA & 5.1 mA \\
+        Stop mode (RTC on) & 0.8 $\mu$A & 1.5 $\mu$A \\
+        Wake-up time (Stop) & 3.5 $\mu$s & 5 $\mu$s \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.2cm}
+    \textbf{Calculation with TYPICAL values:} (10ms active, 60s cycle)
+    \begin{align*}
+        I_{avg} &= \frac{3.5\text{mA} \times 10\text{ms} + 0.8\mu\text{A} \times 59.99\text{s}}{60\text{s}} = \frac{35\mu\text{As} + 48\mu\text{As}}{60\text{s}} = 1.38\mu A
+    \end{align*}
+    
+    Battery life: $19\text{Ah} / 1.38\mu\text{A} = $ \textbf{1,572 years} (theoretical)
+    
+    \vspace{0.2cm}
+    \begin{alertblock}{This number is absurd. What went wrong?}
+        Nothing ``wrong''---but we forgot everything \textit{besides} the MCU.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 3.1: Solution -- What You Forgot}
+    \textbf{The MCU is NOT the only thing drawing current!}
+    
+    \begin{center}
+    \begin{tabular}{llr}
+        \toprule
+        \textbf{Component} & \textbf{Source} & \textbf{Current} \\
+        \midrule
+        MCU (sleep) & STM32L072 DS & 0.8 $\mu$A \\
+        Voltage regulator quiescent & MCP1700 DS & 1.6 $\mu$A \\
+        Pressure sensor (standby) & MS5837 DS & 0.1 $\mu$A \\
+        LoRa module (sleep) & SX1276 DS & 1.5 $\mu$A \\
+        Decoupling leakage & Estimated & $\sim$1 $\mu$A \\
+        PCB leakage (humidity) & Measured & 1-10 $\mu$A \\
+        \midrule
+        \textbf{Total sleep current} & & \textbf{5-15 $\mu$A} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.2cm}
+    With 10$\mu$A sleep + 3.5mA$\times$10ms bursts: $I_{avg} \approx 10.6\mu$A
+    
+    Battery life: $19\text{Ah} / 10.6\mu\text{A} = 205$ years $\rightarrow$ accounting for 2\%/year self-discharge: \textbf{$\sim$15-20 years realistic}
+    
+    \begin{exampleblock}{Key Lesson}
+        Datasheet MCU sleep current is rarely the bottleneck. \textbf{System-level} sleep current (regulator, sensors, leakage) dominates.
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Exercise 3.2: Camera Trap -- MCU + Cloud vs MPU + Edge ML}
+    \begin{block}{Scenario: Wildlife Camera Trap in National Park}
+        A conservation team needs camera traps that detect specific animals. Solar panel provides limited energy budget. Images: 640$\times$480 grayscale (307 kB). Only 10\% of images contain target species.
+        
+        \vspace{0.2cm}
+        \begin{columns}
+            \column{0.5\textwidth}
+            \textbf{Option A: MCU + Cloud}
+            \begin{itemize}
+                \item \textbf{STM32F411} (Cortex-M4, 100MHz)
+                \item Capture image, send raw via cellular
+                \item Cloud performs ML classification
+            \end{itemize}
+            
+            \column{0.5\textwidth}
+            \textbf{Option B: MPU + Edge ML}
+            \begin{itemize}
+                \item \textbf{Raspberry Pi Zero 2W} (Cortex-A53)
+                \item On-device ML classification
+                \item Only send detection events
+            \end{itemize}
+        \end{columns}
+        
+        \vspace{0.2cm}
+        \textbf{Both use:} SIM7000 cellular module (LTE Cat-M1) for data upload.
+    \end{block}
+    
+    \vspace{0.2cm}
+    \textbf{Your task:} Look up the datasheets for these devices and estimate which option uses less energy per image captured. \textit{Where do you find the data you need?}
+\end{frame}
+
+\begin{frame}{Exercise 3.2: Solution -- Step 1: Research the Datasheets}
+    \textbf{An engineer's first step: find real numbers, not guess.}
+    
+    \vspace{0.2cm}
+    \begin{center}
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{Parameter} & \textbf{Value} & \textbf{Source} \\
+        \midrule
+        STM32F411 active & 100 $\mu$A/MHz $\times$ 100MHz & DS, Table 25 \\
+        & $= 10$ mA @ 3.3V $\approx$ \textbf{33 mW} & \\
+        \addlinespace
+        RPi Zero 2W idle & $\sim$120 mA @ 5V $\approx$ \textbf{600 mW} & Community benchmarks \\
+        RPi Zero 2W + ML & $\sim$200 mA @ 5V $\approx$ \textbf{1000 mW} & Measured under load \\
+        \addlinespace
+        SIM7000 LTE TX & 167 mA @ 3.7V $\approx$ \textbf{620 mW} & HW Design Doc v1.04 \\
+        SIM7000 data rate & $\sim$375 kbps (Cat-M1 max) & Datasheet \\
+        ML inference time & $\sim$200 ms (MobileNet on RPi) & TFLite benchmarks \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.2cm}
+    \begin{alertblock}{Notice}
+        Some values come from datasheets, others from community benchmarks. An engineer knows which sources to trust and documents assumptions.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 3.2: Solution -- Step 2: Calculate and Compare}
+    \textbf{Option A: MCU + Cloud (send every image)}
+    \begin{itemize}
+        \item TX time: $307\text{kB} \times 8 / 375\text{kbps} = 6.5\text{s}$
+        \item TX energy: $620\text{mW} \times 6.5\text{s} = \textbf{4.03 J}$ per image
+        \item MCU energy (capture): $33\text{mW} \times 0.1\text{s} = 0.003\text{J}$ (negligible)
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Option B: MPU + Edge ML (send only 10\% of images)}
+    \begin{itemize}
+        \item ML energy: $1000\text{mW} \times 0.2\text{s} = \textbf{0.2 J}$ (every image)
+        \item TX energy: $0.10 \times 4.03\text{J} = 0.403\text{J}$ (average per image)
+        \item Total: $0.2 + 0.403 = \textbf{0.603 J}$ per image
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \begin{exampleblock}{Result: Edge ML is $\sim$\textbf{7x more efficient}}
+        Communication (4.03 J) dominates over computation (0.2 J).
+        
+        \vspace{0.1cm}
+        This ratio changes with detection rate---at 100\% detection, edge ML uses: $0.2 + 4.03 = 4.23$J (slightly worse than cloud-only). Breakeven at $\sim$95\% detection rate.
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Exercise 3.2: Solution -- Step 3: What the Numbers Don't Tell You}
+    \textbf{The energy calculation is NOT the full picture:}
+    
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Favors Option A (MCU + Cloud):}
+        \begin{itemize}
+            \item Simpler firmware (no ML stack)
+            \item All images preserved for review
+            \item Can retrain/change model anytime
+            \item MCU boots in $\mu$s vs RPi in 20s
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \textbf{Favors Option B (MPU + Edge):}
+        \begin{itemize}
+            \item 7x less energy per image
+            \item Works with poor connectivity
+            \item Less cellular data cost
+            \item Reduces latency for alerts
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.4cm}
+    \begin{block}{Key Lesson: Numbers + Context = Decision}
+        \begin{enumerate}
+            \item \textbf{Find real data} from datasheets, not assumptions
+            \item \textbf{Calculate} to establish which factors dominate
+            \item \textbf{Consider} non-quantifiable factors (reliability, maintainability, cost)
+            \item \textbf{Document} your sources and assumptions
+        \end{enumerate}
+    \end{block}
+\end{frame}
+
+%==============================================================================
+\section{Module 4: Communication Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 4.1: Compress or Transmit? -- Soil Moisture Network}
+    \begin{block}{Scenario: LoRaWAN Soil Sensor (from Exercise 2.1 vineyard)}
+        Each sensor node reads 10 soil probes and transmits via \textbf{Semtech SX1276} LoRa radio.
+        
+        \vspace{0.2cm}
+        \textbf{Raw payload:} 10 probes $\times$ 2 bytes = 20 bytes per report.
+        
+        \textbf{Option A:} Send raw 20 bytes every 30 min.
+        
+        \textbf{Option B:} Send only \textit{changes} -- delta encoding. Soil moisture changes slowly, so most readings differ by $<$1\% from previous. Average delta payload: 6 bytes. But compression code takes 2ms extra MCU time.
+    \end{block}
+    
+    \vspace{0.2cm}
+    \textbf{From SX1276 datasheet (Table 10):}
+    \begin{itemize}
+        \item TX current @ +14dBm: 85 mA (at 3.3V $\approx$ 280 mW)
+        \item LoRaWAN SF9/125kHz: effective bitrate $\approx$ 1760 bps
+    \end{itemize}
+    
+    \textbf{Question:} Is delta encoding worth the extra MCU processing?
+\end{frame}
+
+\begin{frame}{Exercise 4.1: Solution -- Do the Math Before Optimizing}
+    \textbf{Option A: Raw 20 bytes}
+    \begin{itemize}
+        \item LoRaWAN overhead: 13 bytes header $\Rightarrow$ total = 33 bytes = 264 bits
+        \item TX time: $264 / 1760 = 150$ ms
+        \item TX energy: $280\text{mW} \times 0.15\text{s} = \textbf{42 mJ}$
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Option B: Delta 6 bytes}
+    \begin{itemize}
+        \item Total = 19 bytes = 152 bits
+        \item TX time: $152 / 1760 = 86$ ms
+        \item TX energy: $280\text{mW} \times 0.086\text{s} = \textbf{24.2 mJ}$
+        \item MCU energy: $33\text{mW} \times 2\text{ms} = 0.07$ mJ (negligible!)
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    Savings: 42 - 24.2 = \textbf{17.8 mJ/report} $\approx$ 42\% energy saved
+    
+    \begin{exampleblock}{Worth it? Per day:}
+        48 reports $\times$ 17.8 mJ = 854 mJ/day saved. Over 5 years: 1.56 kJ.
+        
+        At 3.3V, that's 132 mAh---\textbf{2\% of a AA battery}. Marginal but free.
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Exercise 4.1: Solution -- The Real Lesson}
+    \begin{alertblock}{Surprise: The savings are SMALL because the payload is small!}
+        Compression matters when payloads are \textbf{large} (images, audio, vibration FFTs).
+        
+        For 20-byte soil data, the LoRaWAN header (13 bytes) is 65\% of the packet!
+    \end{alertblock}
+    
+    \vspace{0.3cm}
+    \textbf{When DOES compression matter in IoT?}
+    
+    \begin{center}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Application} & \textbf{Payload} & \textbf{Compression value} \\
+        \midrule
+        Soil moisture (20B) & Small & Low -- header dominates \\
+        Vibration FFT (1kB) & Medium & Medium -- 40\% savings \\
+        Camera image (300kB) & Large & \textbf{High -- critical for battery} \\
+        Audio (320kB) & Large & \textbf{High -- or use edge ML} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.2cm}
+    \begin{block}{Key Lesson}
+        Don't optimize what doesn't matter. \textbf{Calculate first} to find what dominates your energy budget, then optimize \textit{that}.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Exercise 4.2: Link Budget -- How Far Can Your LoRa Node Reach?}
+    \begin{block}{Scenario: Vineyard Gateway Placement}
+        Back to our vineyard (10 hectares, $\sim$316m $\times$ 316m). You need to place a LoRaWAN gateway. Using \textbf{RFM95W} module (based on SX1276).
+        
+        \vspace{0.2cm}
+        \textbf{From datasheets:}
+        \begin{itemize}
+            \item RFM95W TX power: +14 dBm (FCC limit for 915MHz)
+            \item RFM95W sensitivity: $-137$ dBm @ SF12, 125kHz (DS Table 2)
+            \item TX antenna: 2 dBi (small PCB antenna on sensor node)
+            \item RX antenna: 5 dBi (gateway fiberglass antenna, mounted high)
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Questions:}
+        \begin{enumerate}
+            \item What is the maximum \textit{theoretical} range using free-space path loss?
+            \item Why is this number useless for your vineyard? What \textit{real} range do you expect?
+        \end{enumerate}
+    \end{block}
+\end{frame}
+
+\begin{frame}{Exercise 4.2: Solution -- The Calculation}
+    \textbf{Step 1: Link budget (with 10dB margin for fading):}
+    \begin{align*}
+        L_{p,max} &= P_{TX} + G_{TX} + G_{RX} - (S + M) \\
+        &= 14 + 2 + 5 - (-137 + 10) = \textbf{148 dB}
+    \end{align*}
+    
+    \textbf{Step 2: Free-space distance} ($L_p = 20\log d + 20\log f - 147.55$):
+    \begin{align*}
+        20\log d &= 148 - 20\log(915\times10^6) + 147.55 = 148 - 179.2 + 147.55 \\
+        d &= 10^{116.35/20} = 10^{5.82} \approx \textbf{660 km}
+    \end{align*}
+    
+    \begin{alertblock}{660 km is WRONG for your design. Why?}
+        Free-space path loss assumes: no obstacles, no ground reflections, no foliage, no humidity absorption. \textbf{None of these hold in a vineyard.}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 4.2: Solution -- Reality vs Theory}
+    \textbf{What happens in the real world:}
+    
+    \begin{center}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Environment} & \textbf{Extra loss} & \textbf{Realistic range} \\
+        \midrule
+        Free space (theory) & 0 dB & 660 km \\
+        Rural, flat terrain & +20 dB & 15 km \\
+        Vineyard (foliage) & +30-40 dB & 1-3 km \\
+        Dense urban & +40-50 dB & 0.5-2 km \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.2cm}
+    \textbf{For our 316m vineyard with foliage:}
+    \begin{itemize}
+        \item Additional 35 dB foliage/terrain loss $\Rightarrow$ budget = 148 - 35 = 113 dB
+        \item $d = 10^{(113-31.65)/20} = 10^{4.07} \approx$ 11.7 km -- still plenty!
+        \item One gateway \textbf{centered in vineyard} covers all 50 sensors easily
+        \item Can reduce SF to SF7 (faster TX, less energy) since range is short
+    \end{itemize}
+    
+    \begin{exampleblock}{Key Lesson}
+        The link budget tells you \textbf{feasibility}. Real deployment requires \textbf{field testing}. Never design to the theoretical limit---always include 10-20 dB margin.
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Exercise 4.3: Protocol Selection -- Think in Tradeoff Dimensions}
+    \begin{block}{Scenario: Same 4 Applications, Real Constraints}
+        For each application, identify the \textbf{dominant constraint} first, then select protocol:
+        \begin{enumerate}
+            \item \textbf{Vineyard soil sensor:} 50 nodes, 316m range, 20B every 30min, 5-year battery
+            \item \textbf{Delivery truck tracker:} GPS every 5 min, cross-country, moving at 100km/h
+            \item \textbf{Pump vibration monitor:} 1kB FFT results/sec continuous, 30m to gateway, mains powered
+            \item \textbf{Pulse oximeter wearable:} 8B every 2s to phone, 2m range, CR2032 coin cell (220mAh)
+        \end{enumerate}
+    \end{block}
+    
+    \textbf{Don't just pick a protocol---explain which constraint ELIMINATES each alternative.}
+\end{frame}
+
+\begin{frame}{Exercise 4.3: Solution -- Elimination by Constraint}
+    \footnotesize
+    \begin{center}
+    \begin{tabular}{lllll}
+        \toprule
+        & \textbf{Vineyard} & \textbf{Truck} & \textbf{Pump} & \textbf{Wearable} \\
+        \midrule
+        \textbf{Dominant} & Battery life & Coverage + & Data rate & Phone \\
+        \textbf{constraint} & (5 years) & mobility & (1kB/s) & compatibility \\
+        \midrule
+        LoRaWAN & \textcolor{green}{\checkmark} & \textcolor{red}{$\times$} No global & \textcolor{red}{$\times$} Too slow & \textcolor{red}{$\times$} No phone \\
+        NB-IoT & OK but \$\$/month & \textcolor{green}{\checkmark} & \textcolor{red}{$\times$} Latency & \textcolor{red}{$\times$} No phone \\
+        Wi-Fi & \textcolor{red}{$\times$} Power hungry & \textcolor{red}{$\times$} No infra & \textcolor{green}{\checkmark} & \textcolor{red}{$\times$} Power \\
+        BLE & \textcolor{red}{$\times$} Range & \textcolor{red}{$\times$} Range & OK but limited & \textcolor{green}{\checkmark} \\
+        \midrule
+        \textbf{Winner} & \textbf{LoRaWAN} & \textbf{NB-IoT} & \textbf{Wi-Fi} & \textbf{BLE} \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    \normalsize
+    
+    \vspace{0.2cm}
+    \begin{alertblock}{The Method: Eliminate, Don't Compare Everything}
+        \begin{enumerate}
+            \item Identify the ONE constraint that matters most
+            \item Eliminate protocols that violate it
+            \item Among survivors, pick simplest/cheapest
+        \end{enumerate}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 4.4: ARQ Energy Cost -- Is Reliability Free?}
+    \begin{block}{Scenario: LoRaWAN Confirmed Uplink}
+        Your vineyard sensor uses \textbf{confirmed uplinks} (LoRaWAN Class A with ACK). But each ACK requires opening \textbf{two receive windows} (RX1 + RX2), which costs energy.
+        
+        \vspace{0.2cm}
+        \textbf{From SX1276 datasheet:}
+        \begin{itemize}
+            \item TX (50 bytes, SF9): 85 mA for 150ms = \textbf{12.75 mAs}
+            \item RX window: 10.5 mA for 500ms each = \textbf{5.25 mAs per window}
+            \item Two RX windows per confirmed uplink
+            \item Channel BER: $10^{-4}$ (good conditions)
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Questions:}
+        \begin{enumerate}
+            \item What is the energy overhead of confirmed vs unconfirmed uplinks?
+            \item At what packet loss rate does ARQ become worth it?
+        \end{enumerate}
+    \end{block}
+\end{frame}
+
+\begin{frame}{Exercise 4.4: Solution -- The Hidden Cost of Reliability}
+    \textbf{Unconfirmed uplink:} TX only = 12.75 mAs per packet
+    
+    \textbf{Confirmed uplink:} TX + 2 RX windows = $12.75 + 2 \times 5.25 = $ \textbf{23.25 mAs}
+    
+    \vspace{0.2cm}
+    \textbf{Overhead:} $(23.25 - 12.75) / 12.75 = $ \textbf{82\% more energy} just for the ACK!
+    
+    \vspace{0.3cm}
+    \textbf{Packet success probability:}
+    \begin{align*}
+        P_{success} &= (1 - 10^{-4})^{50 \times 8} = 0.961
+    \end{align*}
+    
+    \textbf{Expected retransmissions:} $E[N] = 1/0.961 = 1.04$ (4\% retransmission rate)
+    
+    \vspace{0.2cm}
+    \begin{alertblock}{Tradeoff Analysis}
+        \begin{itemize}
+            \item Confirmed: 23.25 mAs $\times$ 1.04 = \textbf{24.2 mAs} (always pays RX cost)
+            \item Unconfirmed: 12.75 mAs $\times$ 1.04 = \textbf{13.3 mAs} (lose 4\% of data)
+        \end{itemize}
+        Confirmed costs \textbf{82\% more energy} to recover \textbf{4\% of packets}.
+        
+        For soil moisture (slow-changing), losing 4\% of readings is acceptable. \textbf{Use unconfirmed!}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 4.5: MAC Protocol -- When 100 Sensors Share One Channel}
+    \begin{block}{Scenario: Warehouse Inventory Tracking}
+        A warehouse has 100 BLE beacons on pallets. A gateway scans for updates. Each beacon advertises its status every 10 minutes. Each advertisement: 3 packets $\times$ 376$\mu$s on 3 channels = 1.13 ms total airtime.
+        
+        \vspace{0.2cm}
+        \textbf{BLE spec:} advertising uses random backoff (ALOHA-like) with 0-10ms random delay.
+        
+        \vspace{0.2cm}
+        \textbf{Questions:}
+        \begin{enumerate}
+            \item What is the channel utilization $G$?
+            \item What collision probability should you expect?
+            \item The warehouse grows to 1000 beacons. Does it still work?
+            \item At what point would you need a different MAC strategy?
+        \end{enumerate}
+    \end{block}
+\end{frame}
+
+\begin{frame}{Exercise 4.5: Solution -- Scaling Analysis}
+    \textbf{100 beacons:}
+    \[
+        G = \frac{100 \times 1.13\text{ms}}{600\text{s}} = 0.000188 \approx 0.02\%
+    \]
+    Pure ALOHA: $S = G \cdot e^{-2G} \approx G$ (negligible collisions) $\checkmark$
+    
+    \vspace{0.2cm}
+    \textbf{1000 beacons:}
+    $G = 0.00188 \approx 0.2\%$ -- still fine! Collision rate $<$ 0.4\%
+    
+    \vspace{0.2cm}
+    \textbf{When does it break?} Pure ALOHA max throughput at $G = 0.5$:
+    \[
+        N_{max} = \frac{0.5 \times 600\text{s}}{1.13\text{ms}} = 265,486 \text{ beacons}
+    \]
+    
+    But ALOHA efficiency drops above $G > 0.1$. Practical limit: $\sim$53,000 beacons.
+    
+    \vspace{0.2cm}
+    \begin{exampleblock}{Key Lesson: Don't Over-Engineer the MAC}
+        At low $G$, ALOHA/random access is perfectly fine. TDMA synchronization only justified when:
+        \begin{itemize}
+            \item $G > 0.1$ (channel getting crowded)
+            \item Latency guarantees needed (real-time control)
+            \item Energy of collisions is unacceptable (e.g., satellite links)
+        \end{itemize}
+    \end{exampleblock}
+\end{frame}
+
+%==============================================================================
+\section{Integrated Design Problems}
+%==============================================================================
+
+\begin{frame}{Design Problem 1: Full System -- Vineyard Monitoring}
+    \begin{block}{Pull It All Together}
+        Using everything from the previous exercises, specify a complete Bill of Materials for one vineyard sensor node. \textbf{Justify every choice with a datasheet reference.}
+        
+        \vspace{0.2cm}
+        \begin{center}
+        \begin{tabular}{lll}
+            \toprule
+            \textbf{Subsystem} & \textbf{Component} & \textbf{Why this one?} \\
+            \midrule
+            Sensor & Decagon EC-5 & ? \\
+            ADC & Internal (MCU) & ? \\
+            MCU & STM32L072 & ? \\
+            Radio & RFM95W (SX1276) & ? \\
+            Battery & 2x AA Energizer L91 & ? \\
+            \bottomrule
+        \end{tabular}
+        \end{center}
+        
+        \vspace{0.2cm}
+        \textbf{For each component:} Find the datasheet, identify the key spec that justifies the choice, and note the page number.
+    \end{block}
+\end{frame}
+
+\begin{frame}{Design Problem 1: Solution -- BOM with Justification}
+    \footnotesize
+    \begin{center}
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{Part} & \textbf{Key Spec} & \textbf{Source} & \textbf{Justification} \\
+        \midrule
+        EC-5 sensor & $\pm$3\% VWC & DS p.2 & Matches irrigation decision threshold \\
+        STM32L072 & 0.8$\mu$A Stop & DS10182, T24 & Lowest sleep current in class \\
+        RFM95W & $-137$dBm SF12 & DS p.8 & Covers vineyard with SF7-9 \\
+        L91 lithium & 3500 mAh & DS p.1 & 2x = 7Ah, 0.5\%/yr self-discharge \\
+        MCP1700 & 1.6$\mu$A quiescent & DS p.4 & Doesn't dominate sleep budget \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    \normalsize
+    
+    \vspace{0.2cm}
+    \textbf{System power budget} (from Ex 3.1 methodology):
+    \begin{itemize}
+        \item Sleep: MCU(0.8) + regulator(1.6) + radio(1.5) + leakage(2) = \textbf{$\sim$6$\mu$A}
+        \item Active burst: 3.5mA $\times$ 50ms + 85mA $\times$ 150ms TX = \textbf{12.9 mAs/cycle}
+        \item $I_{avg}$: $(6\mu\text{A} \times 1800\text{s} + 12.9\text{mAs}) / 1800\text{s} \approx$ \textbf{13.2 $\mu$A}
+    \end{itemize}
+    
+    Battery life: $7000\text{mAh} / 0.0132\text{mA} = 530,000\text{h} \approx$ 60 years theoretical.
+    
+    With self-discharge and aging: \textbf{$\sim$8-12 years realistic}. Exceeds 5-year requirement.
+\end{frame}
+
+\begin{frame}{Design Problem 2: Pump Condition Monitoring -- Platform Decision}
+    \begin{block}{Scenario: Factory Has Budget for ONE Platform}
+        A factory needs vibration monitoring on 20 pumps. Budget meeting next week. Two vendors are pitching:
+        
+        \vspace{0.2cm}
+        \begin{columns}
+            \column{0.5\textwidth}
+            \textbf{Vendor A: ``Edge AI Solution''}
+            \begin{itemize}
+                \item NVIDIA Jetson Nano per pump
+                \item Runs TensorFlow model
+                \item ``Cloud-free, AI-powered''
+                \item \$150/node + \$500 setup
+            \end{itemize}
+            
+            \column{0.5\textwidth}
+            \textbf{Vendor B: ``Traditional DSP''}
+            \begin{itemize}
+                \item STM32H7 (Cortex-M7 + FPU)
+                \item FFT-based spectral analysis
+                \item Ethernet to SCADA
+                \item \$45/node + \$200 setup
+            \end{itemize}
+        \end{columns}
+        
+        \vspace{0.2cm}
+        \textbf{Alert requirement:} detect anomaly within 100ms. \textbf{What do you recommend?}
+    \end{block}
+\end{frame}
+
+\begin{frame}{Design Problem 2: Solution -- Cut Through the Marketing}
+    \textbf{Step 1: Does the ``AI'' add value here?}
+    
+    \begin{itemize}
+        \item Bearing faults produce known spectral signatures (BPFO, BPFI, BSF, FTF)
+        \item These are well-characterized in vibration analysis literature since the 1970s
+        \item FFT + threshold detection is \textbf{proven, interpretable, debuggable}
+        \item ML model is a \textbf{black box}---when it fails, how do you debug?
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \textbf{Step 2: Check the numbers}
+    \begin{center}
+    \begin{tabular}{lcc}
+        \toprule
+        & \textbf{Jetson Nano} & \textbf{STM32H7} \\
+        \midrule
+        Power & 5-10W & 0.5W \\
+        Boot time & $\sim$30s (Linux) & $<$10ms (bare metal) \\
+        100ms latency? & Hard (OS jitter) & \textbf{Guaranteed (RTOS)} \\
+        Cost $\times$ 20 & \$13,000 & \textbf{\$4,900} \\
+        Maintenance & Linux updates, SD card wear & Firmware, OTA updates \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \begin{alertblock}{Decision: Vendor B (STM32H7)}
+        ``AI'' is marketing. For \textbf{known fault signatures}, FFT + thresholds is simpler, cheaper, faster, and more reliable. Use ML only when the failure modes are truly unknown.
+    \end{alertblock}
+\end{frame}
+
+%==============================================================================
+\section{AI vs Engineering Reality}
+%==============================================================================
+
+\begin{frame}{What Happens When You Ask AI to Design Your System?}
+    \textbf{Experiment:} We asked ChatGPT to design a LoRaWAN soil moisture sensor for a vineyard. Here is a summary of its response:
+    
+    \vspace{0.2cm}
+    \begin{block}{AI Response (paraphrased):}
+        \textit{``Use an ESP32 with a capacitive soil moisture sensor. Connect via LoRaWAN using the built-in LoRa radio. Power with a 3.7V 18650 lithium battery and a small solar panel. Set sampling interval to 10 minutes. Use deep sleep mode for power savings. Expected battery life: several months to a year.''}
+    \end{block}
+    
+    \vspace{0.2cm}
+    \textbf{Sounds reasonable, right?}
+    
+    \vspace{0.2cm}
+    Let's check it against datasheets...
+\end{frame}
+
+\begin{frame}{AI Response vs Datasheet Reality}
+    \footnotesize
+    \begin{center}
+    \begin{tabular}{p{2.8cm}p{4cm}p{4.5cm}}
+        \toprule
+        \textbf{AI Claim} & \textbf{Reality (from datasheets)} & \textbf{Problem} \\
+        \midrule
+        ``ESP32 deep sleep'' & ESP32 deep sleep: \textbf{10 $\mu$A} (DS, Table 8). STM32L0: \textbf{0.8 $\mu$A}. & ESP32 uses 12x more sleep power. Wrong MCU for 5-year battery. \\
+        \addlinespace
+        ``Built-in LoRa radio'' & ESP32 has \textbf{NO} LoRa radio. Needs external SX1276 module. & AI confused ESP32 with Heltec ESP32+LoRa board. \\
+        \addlinespace
+        ``18650 battery'' & 18650 Li-ion: 3-5\%/month self-discharge. After 5 years: \textbf{empty}. & Lithium primary (Energizer L91): 0.5\%/year. AI picked wrong chemistry. \\
+        \addlinespace
+        ``Several months'' & No calculation provided. Our analysis: \textbf{8-12 years} with correct components. & AI guessed instead of calculating. \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    \normalsize
+    
+    \begin{alertblock}{4 errors in one paragraph. All sound plausible.}
+        AI generates \textbf{plausible-sounding} answers from patterns, not from datasheets. It cannot verify specs, check availability, or test circuits.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{How to Use AI Without Replacing Your Own Thinking}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{AI is useful for:}
+        \begin{itemize}
+            \item Brainstorming component options
+            \item Generating code scaffolding
+            \item Explaining concepts you don't know
+            \item Finding datasheet section names
+            \item Writing documentation drafts
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{AI is dangerous for:}
+        \begin{itemize}
+            \item Specific numeric specs
+            \item Component compatibility
+            \item Power budget calculations
+            \item Regulatory compliance
+            \item ``Is this design correct?''
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \begin{alertblock}{The AI-Native Rule}
+            \textbf{Every AI-generated claim must be verified against a primary source.}
+            
+            \vspace{0.2cm}
+            Primary sources:
+            \begin{enumerate}
+                \item Manufacturer datasheet
+                \item Peer-reviewed papers
+                \item Official protocol specs
+                \item Your own measurements
+            \end{enumerate}
+        \end{alertblock}
+        
+        \vspace{0.2cm}
+        \begin{exampleblock}{The Test}
+            If you can't cite a datasheet page number for a design parameter, you haven't done engineering---you've done \textbf{guessing with extra steps}.
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+%==============================================================================
+\section{Summary}
+%==============================================================================
+
+\begin{frame}{Key Takeaways}
+    \textbf{Design is about trade-offs. Quantify before deciding!}
+    
+    \vspace{0.3cm}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Module 1 - DAQ:}
+        \begin{itemize}
+            \item Match ADC to signal, not to ``best available''
+            \item Nyquist is the minimum---consider filter design
+            \item Bus selection: distance eliminates options first
+        \end{itemize}
+        
+        \textbf{Module 2 - Characterization:}
+        \begin{itemize}
+            \item Research signal BEFORE choosing hardware
+            \item Find the ``project killer'' constraint first
+            \item Sensor lifetime $\neq$ battery lifetime
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \textbf{Module 3 - Processing:}
+        \begin{itemize}
+            \item System sleep current $\gg$ MCU sleep current
+            \item Edge ML wins when TX energy dominates
+            \item Don't use AI/ML where FFT works
+        \end{itemize}
+        
+        \textbf{Module 4 - Communication:}
+        \begin{itemize}
+            \item Link budget: theory $\neq$ reality (add 20+dB)
+            \item Eliminate protocols by constraints, don't score
+            \item Confirmed uplinks cost 82\% more energy
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{Engineering Mindset}
+        Datasheet first, calculate second, decide third. \textbf{Never trust a number you didn't verify.}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Questions?}
+    \begin{center}
+        \Huge Questions?
+        
+        \vspace{1cm}
+        \normalsize
+        \textbf{Eduardo Baena}\\
+        \texttt{e.baena@northeastern.edu}
+        
+        \vspace{0.5cm}
+        \textit{EECE5155: Wireless Sensor Networks and the Internet of Things}\\
+        Spring 2026
+    \end{center}
+\end{frame}
+
+\end{document}

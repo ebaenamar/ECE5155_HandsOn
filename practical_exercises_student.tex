@@ -1,0 +1,656 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% Theme and colors
+\usetheme{Madrid}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc,fit,backgrounds,decorations.pathmorphing,patterns}
+\usepackage{siunitx}
+
+% Custom colors
+\definecolor{questionbg}{RGB}{255,248,220}
+\definecolor{questionborder}{RGB}{255,193,7}
+\definecolor{verifybg}{RGB}{220,235,255}
+\definecolor{verifyborder}{RGB}{0,100,200}
+
+% Title information
+\title[EECE5155 -- Practical Exercises]{Practical Exercises -- Student Worksheet}
+\subtitle{Modules 1-4: Use AI as a Tool, Not as a Crutch}
+\author{Eduardo Baena}
+\date{Spring 2026}
+\institute{Northeastern University\\Department of Electrical and Computer Engineering\\
+\texttt{e.baena@northeastern.edu}}
+
+\begin{document}
+
+% Title slide
+\begin{frame}
+    \titlepage
+    \vspace{-1cm}
+    \begin{center}
+        \textbf{EECE5155: Wireless Sensor Networks and the Internet of Things}
+    \end{center}
+\end{frame}
+
+%==============================================================================
+\section{How to Work}
+%==============================================================================
+
+\begin{frame}{Rules of Engagement}
+    \begin{columns}
+        \column{0.55\textwidth}
+        \textbf{You MAY use AI (ChatGPT, Copilot, etc.) for:}
+        \begin{itemize}
+            \item Brainstorming component options
+            \item Asking ``What is [concept]?''
+            \item Generating calculation scaffolding
+            \item Finding which datasheet section to read
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{You MUST verify every AI claim with:}
+        \begin{enumerate}
+            \item Manufacturer \textbf{datasheets} (cite page/table)
+            \item \textbf{Application notes} from the manufacturer
+            \item \textbf{Protocol specifications} (IEEE, 3GPP, LoRa Alliance)
+            \item Your own \textbf{calculations}
+        \end{enumerate}
+        
+        \column{0.45\textwidth}
+        \begin{alertblock}{The Verification Rule}
+            For every numeric value in your solution, you must write:
+            
+            \vspace{0.2cm}
+            \textit{``[value] -- Source: [datasheet name], [page/table]''}
+            
+            \vspace{0.2cm}
+            If you cannot cite a source, mark it as \textbf{ASSUMPTION} and justify why it's reasonable.
+        \end{alertblock}
+        
+        \vspace{0.2cm}
+        \begin{exampleblock}{Grading}
+            Correct answer with no source: \textbf{50\%}
+            
+            Wrong answer with good reasoning and real sources: \textbf{80\%}
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{The Engineering Thinking Process}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{Step 1: Identify Constraints}
+        \begin{itemize}
+            \item What MUST be satisfied? (non-negotiable)
+            \item Example: ``Resolution $\leq$ 0.1\textdegree C'' is a constraint
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{Step 2: Identify Objectives}
+        \begin{itemize}
+            \item What do we WANT to optimize?
+            \item Usually: cost, power, size, complexity
+            \item These compete with each other!
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \textbf{Step 3: Map the Tradeoff Space}
+        \begin{itemize}
+            \item What options satisfy constraints?
+            \item How do they compare on objectives?
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{Step 4: Make \& Justify Decision}
+        \begin{itemize}
+            \item Which objective matters most here?
+            \item Document your reasoning!
+        \end{itemize}
+    \end{columns}
+    
+    \vspace{0.4cm}
+    \begin{exampleblock}{Key Insight}
+        There is rarely a ``best'' answer---only the best answer \textbf{for your specific context}.
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Deliverable Format for Each Exercise}
+    \textbf{For each exercise, submit a short document with these sections:}
+    
+    \vspace{0.3cm}
+    \begin{enumerate}
+        \item \textbf{Constraints Identified:} List the non-negotiable requirements
+        
+        \item \textbf{Data Gathered:} Table of values used, with sources
+        \begin{center}
+        \footnotesize
+        \begin{tabular}{llll}
+            \toprule
+            \textbf{Parameter} & \textbf{Value} & \textbf{Source} & \textbf{Page/Table} \\
+            \midrule
+            Example: STM32L0 sleep & 0.8 $\mu$A & DS10182 Rev6 & Table 24 \\
+            Example: LoRa TX power & +14 dBm & SX1276 DS & Table 10 \\
+            \bottomrule
+        \end{tabular}
+        \normalsize
+        \end{center}
+        
+        \item \textbf{Calculations:} Show your work step by step
+        
+        \item \textbf{Decision \& Justification:} What did you choose and why?
+        
+        \item \textbf{AI Audit:} What did you ask AI? What did it get wrong?
+    \end{enumerate}
+\end{frame}
+
+%==============================================================================
+\section{Module 1: Data Acquisition Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 1.1: ADC Selection for Vaccine Cold Chain}
+    \begin{block}{Scenario: WHO Vaccine Storage Compliance}
+        You're designing a temperature logger for vaccine cold chain monitoring in rural clinics.
+        
+        \vspace{0.2cm}
+        \textbf{Regulatory requirement} (WHO PQS E006): Vaccines must stay between $+2^\circ$C and $+8^\circ$C. Logger must detect excursions $\geq 0.5^\circ$C outside this range.
+        
+        \vspace{0.2cm}
+        \textbf{Your sensor:} LM35 analog temperature sensor
+        \begin{itemize}
+            \item Output: 10mV/$^\circ$C, linear from $-40^\circ$C to $+110^\circ$C
+            \item At 0$^\circ$C outputs 0V (negative temps need negative supply)
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Your MCU options:} STM32L0 has internal 12-bit ADC. External ADS1115 is 16-bit but adds \$2 cost and I2C complexity.
+    \end{block}
+    
+    \textbf{Question:} Which ADC do you choose and why? What are the tradeoffs?
+    
+    \vspace{0.1cm}
+    {\footnotesize \textit{Verify:} Look up LM35 datasheet (output specs), STM32L0 datasheet (ADC specs, Table 46), ADS1115 datasheet (resolution).}
+\end{frame}
+
+\begin{frame}{Exercise 1.2: Sampling Rate for Pump Predictive Maintenance}
+    \begin{block}{Scenario: Chemical Plant Centrifugal Pump}
+        A chemical plant wants to detect bearing wear in centrifugal pumps \textbf{before} failure. Unplanned downtime costs \$50,000/hour.
+        
+        \vspace{0.2cm}
+        \textbf{Domain knowledge} (from vibration analysis literature):
+        \begin{itemize}
+            \item Pump runs at 1800 RPM (30 Hz rotation)
+            \item Bearing defects appear at 3-10x rotation frequency (90-300 Hz)
+            \item Gear mesh frequencies up to 1 kHz
+            \item \textbf{Rule of thumb:} Capture up to 3rd harmonic of highest frequency
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Constraints:}
+        \begin{itemize}
+            \item Battery-powered sensor (solar recharge, but minimize consumption)
+            \item MCU options: 10kSPS (lowest power), 50kSPS, 100kSPS (highest power)
+        \end{itemize}
+    \end{block}
+    
+    \textbf{Question:} What sampling rate do you choose? What could go wrong with each choice?
+    
+    {\footnotesize \textit{Hint:} Don't just calculate Nyquist---think about what happens to frequencies \textbf{above} your Nyquist limit.}
+\end{frame}
+
+\begin{frame}{Exercise 1.3: Bus Selection for Commercial Greenhouse}
+    \begin{block}{Scenario: Multi-Zone Climate Control}
+        A commercial greenhouse operator needs temperature monitoring across 8 growing zones for automated HVAC control. Installation will be done by electricians, not engineers.
+        
+        \vspace{0.2cm}
+        \textbf{Physical layout:}
+        \begin{itemize}
+            \item Zones spread across 20m $\times$ 50m greenhouse
+            \item Longest cable run: 25m from controller
+            \item Environment: High humidity (90\%+), fertilizer chemicals in air
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Requirements:}
+        \begin{itemize}
+            \item 1 reading per zone per second (for PID control loop)
+            \item Easy to add/remove sensors as zones change
+            \item Maintainable by non-engineers
+        \end{itemize}
+    \end{block}
+    
+    \textbf{Question:} SPI, I2C, or 1-Wire? What factors drive your decision?
+    
+    {\footnotesize \textit{Verify:} Look up max cable lengths for SPI, I2C, 1-Wire. Check DS18B20 datasheet for 1-Wire specs.}
+\end{frame}
+
+%==============================================================================
+\section{Module 2: Engineering Characterization Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 2.1: Signal Characterization -- Vineyard Frost Protection}
+    \begin{block}{Scenario: Napa Valley Vineyard}
+        A vineyard loses \$200k/year to unexpected frost damage. Owner wants a sensor network to trigger frost fans when temperature drops below critical thresholds.
+        
+        \vspace{0.2cm}
+        \textbf{Before choosing ANY hardware, you must characterize the signal:}
+        \begin{enumerate}
+            \item What exactly are you measuring? (not just ``temperature'')
+            \item How fast does it change? (determines sampling rate)
+            \item What accuracy actually matters for the decision?
+            \item What environmental factors could fool your sensor?
+        \end{enumerate}
+    \end{block}
+    
+    \vspace{0.1cm}
+    \begin{alertblock}{AI Task}
+        Ask AI: ``What temperature causes frost damage in grapevines?'' Then verify its answer against UC Davis Viticulture Extension publications or USDA Plant Hardiness data. \textbf{Does the AI answer match the real threshold?}
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{Exercise 2.2: Constraint Prioritization -- Urban Air Quality}
+    \begin{block}{Scenario: City Smart Lamp Post Deployment}
+        Boston deploys 500 air quality monitors on lamp posts. Each unit has:
+        \begin{itemize}
+            \item \textbf{Plantower PMS5003} (PM2.5 laser sensor): needs fan, 100mA active
+            \item \textbf{Sensirion SCD41} (CO2): 18mA during measurement
+            \item \textbf{BME280} (temp/humidity): 0.35mA active
+            \item Solar panel (1W) + 6000mAh LiPo battery
+            \item NB-IoT cellular (Quectel BC66): 220mA TX peak
+        \end{itemize}
+        
+        \vspace{0.2cm}
+        \textbf{Requirement:} 5 years maintenance-free.
+        
+        \textbf{Your task:} Before designing anything, identify which constraints will KILL the project if ignored. Rank by severity.
+    \end{block}
+    
+    {\footnotesize \textit{Verify:} Look up PMS5003 datasheet (laser lifetime hours), SCD41 datasheet (drift spec in ppm/year), LiPo aging specs. The ``project killer'' is NOT where you expect.}
+\end{frame}
+
+%==============================================================================
+\section{Module 3: Local Processing Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 3.1: MCU Power -- What the Datasheet Doesn't Tell You}
+    \begin{block}{Scenario: River Water Level Monitor (USGS deployment)}
+        You need a sensor node that measures water level every 60 seconds and lasts 5 years on a \textbf{Tadiran TL-5930 D-cell lithium battery} (19 Ah, 3.6V).
+        
+        \vspace{0.2cm}
+        Your MCU candidate: \textbf{STM32L072} (Cortex-M0+, ultra-low-power)
+        
+        \vspace{0.2cm}
+        \textbf{Your task:} Look up the STM32L072 datasheet and estimate battery life. But beware---the datasheet gives \textit{ideal} numbers. What's missing?
+    \end{block}
+    
+    \vspace{0.2cm}
+    \textbf{Hints -- where to look in STM32L072 DS (DS10182):}
+    \begin{itemize}
+        \item Table 22: ``Current consumption in Run mode''
+        \item Table 24: ``Current consumption in Stop mode''
+        \item Table 28: ``Wake-up time from Stop mode''
+    \end{itemize}
+    
+    {\footnotesize \textit{AI task:} Ask AI for ``STM32L072 sleep current.'' Compare its answer to the datasheet. Then ask: what ELSE draws current besides the MCU?}
+\end{frame}
+
+\begin{frame}{Exercise 3.2: Camera Trap -- MCU + Cloud vs MPU + Edge ML}
+    \begin{block}{Scenario: Wildlife Camera Trap in National Park}
+        A conservation team needs camera traps that detect specific animals. Solar panel provides limited energy budget. Images: 640$\times$480 grayscale (307 kB). Only 10\% of images contain target species.
+        
+        \vspace{0.2cm}
+        \begin{columns}
+            \column{0.5\textwidth}
+            \textbf{Option A: MCU + Cloud}
+            \begin{itemize}
+                \item \textbf{STM32F411} (Cortex-M4, 100MHz)
+                \item Capture image, send raw via cellular
+                \item Cloud performs ML classification
+            \end{itemize}
+            
+            \column{0.5\textwidth}
+            \textbf{Option B: MPU + Edge ML}
+            \begin{itemize}
+                \item \textbf{Raspberry Pi Zero 2W} (Cortex-A53)
+                \item On-device ML classification
+                \item Only send detection events
+            \end{itemize}
+        \end{columns}
+        
+        \vspace{0.2cm}
+        \textbf{Both use:} SIM7000 cellular module (LTE Cat-M1) for data upload.
+    \end{block}
+    
+    \textbf{Your task:} Look up the datasheets for these 3 devices. Build an energy model. Which option wins?
+    
+    {\footnotesize \textit{Verify:} STM32F411 DS (current/MHz), RPi Zero 2W power benchmarks, SIM7000 HW Design Doc v1.04 (TX current).}
+\end{frame}
+
+%==============================================================================
+\section{Module 4: Communication Exercises}
+%==============================================================================
+
+\begin{frame}{Exercise 4.1: Compress or Transmit? -- Soil Moisture Network}
+    \begin{block}{Scenario: LoRaWAN Soil Sensor (from vineyard in Exercise 2.1)}
+        Each sensor node reads 10 soil probes and transmits via \textbf{Semtech SX1276} LoRa radio.
+        
+        \vspace{0.2cm}
+        \textbf{Raw payload:} 10 probes $\times$ 2 bytes = 20 bytes per report.
+        
+        \textbf{Option A:} Send raw 20 bytes every 30 min.
+        
+        \textbf{Option B:} Send only \textit{changes} -- delta encoding. Soil moisture changes slowly, so most readings differ by $<$1\% from previous. Average delta payload: 6 bytes. But compression code takes 2ms extra MCU time.
+    \end{block}
+    
+    \vspace{0.1cm}
+    \textbf{From SX1276 datasheet (Table 10):}
+    \begin{itemize}
+        \item TX current @ +14dBm: 85 mA (at 3.3V $\approx$ 280 mW)
+        \item LoRaWAN SF9/125kHz: effective bitrate $\approx$ 1760 bps
+    \end{itemize}
+    
+    \textbf{Question:} Is delta encoding worth the extra MCU processing? Don't forget LoRaWAN header overhead (13 bytes).
+\end{frame}
+
+\begin{frame}{Exercise 4.2: Link Budget -- How Far Can Your LoRa Node Reach?}
+    \begin{block}{Scenario: Vineyard Gateway Placement}
+        Back to our vineyard (10 hectares, $\sim$316m $\times$ 316m). You need to place a LoRaWAN gateway. Using \textbf{RFM95W} module (based on SX1276).
+        
+        \vspace{0.2cm}
+        \textbf{From datasheets:}
+        \begin{itemize}
+            \item RFM95W TX power: +14 dBm (FCC limit for 915MHz)
+            \item RFM95W sensitivity: $-137$ dBm @ SF12, 125kHz (DS Table 2)
+            \item TX antenna: 2 dBi (small PCB antenna on sensor node)
+            \item RX antenna: 5 dBi (gateway fiberglass antenna, mounted high)
+        \end{itemize}
+    \end{block}
+    
+    \textbf{Questions:}
+    \begin{enumerate}
+        \item Calculate maximum \textit{theoretical} range using FSPL: $L_p = 20\log_{10}(d) + 20\log_{10}(f) - 147.55$
+        \item Why is this number useless for your vineyard? What \textit{real} range do you expect?
+    \end{enumerate}
+    
+    {\footnotesize \textit{AI task:} Ask AI ``What is the range of LoRa?'' Compare its answer to your calculation AND to published field test results.}
+\end{frame}
+
+\begin{frame}{Exercise 4.3: Protocol Selection -- Think in Tradeoff Dimensions}
+    \begin{block}{Scenario: Same 4 Applications, Real Constraints}
+        For each application, identify the \textbf{dominant constraint} first, then select protocol:
+        \begin{enumerate}
+            \item \textbf{Vineyard soil sensor:} 50 nodes, 316m range, 20B every 30min, 5-year battery
+            \item \textbf{Delivery truck tracker:} GPS every 5 min, cross-country, moving at 100km/h
+            \item \textbf{Pump vibration monitor:} 1kB FFT results/sec continuous, 30m to gateway, mains powered
+            \item \textbf{Pulse oximeter wearable:} 8B every 2s to phone, 2m range, CR2032 coin cell (220mAh)
+        \end{enumerate}
+        
+        \textbf{Options:} LoRaWAN, NB-IoT, Wi-Fi, BLE, Zigbee
+    \end{block}
+    
+    \textbf{Don't just pick a protocol---explain which constraint ELIMINATES each alternative.}
+    
+    \vspace{0.1cm}
+    {\footnotesize \textit{Method:} For each application, create an elimination table. Check real specs: LoRaWAN max payload, NB-IoT coverage maps, BLE range, Wi-Fi power consumption from datasheets.}
+\end{frame}
+
+\begin{frame}{Exercise 4.4: ARQ Energy Cost -- Is Reliability Free?}
+    \begin{block}{Scenario: LoRaWAN Confirmed Uplink}
+        Your vineyard sensor uses \textbf{confirmed uplinks} (LoRaWAN Class A with ACK). But each ACK requires opening \textbf{two receive windows} (RX1 + RX2), which costs energy.
+        
+        \vspace{0.2cm}
+        \textbf{From SX1276 datasheet:}
+        \begin{itemize}
+            \item TX (50 bytes, SF9): 85 mA for 150ms = \textbf{12.75 mAs}
+            \item RX window: 10.5 mA for 500ms each = \textbf{5.25 mAs per window}
+            \item Two RX windows per confirmed uplink
+            \item Channel BER: $10^{-4}$ (good conditions)
+        \end{itemize}
+    \end{block}
+    
+    \textbf{Questions:}
+    \begin{enumerate}
+        \item What is the energy overhead of confirmed vs unconfirmed uplinks?
+        \item Calculate packet success probability and expected retransmissions.
+        \item For soil moisture data that changes slowly---is confirmed uplink worth it?
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}{Exercise 4.5: MAC Protocol -- When 100 Sensors Share One Channel}
+    \begin{block}{Scenario: Warehouse Inventory Tracking}
+        A warehouse has 100 BLE beacons on pallets. A gateway scans for updates. Each beacon advertises its status every 10 minutes. Each advertisement: 3 packets $\times$ 376$\mu$s on 3 channels = 1.13 ms total airtime.
+        
+        \vspace{0.2cm}
+        \textbf{BLE spec:} advertising uses random backoff (ALOHA-like) with 0-10ms random delay.
+    \end{block}
+    
+    \textbf{Questions:}
+    \begin{enumerate}
+        \item What is the channel utilization $G$?
+        \item What collision probability should you expect? (Pure ALOHA: $S = G \cdot e^{-2G}$)
+        \item The warehouse grows to 1000 beacons. Does it still work?
+        \item At what point would you need a different MAC strategy (TDMA)?
+    \end{enumerate}
+    
+    {\footnotesize \textit{Think:} Is it worth engineering a complex TDMA schedule for this scenario? Calculate before deciding!}
+\end{frame}
+
+%==============================================================================
+\section{Integrated Design Problems}
+%==============================================================================
+
+\begin{frame}{Design Problem 1: Full System -- Vineyard Monitoring BOM}
+    \begin{block}{Pull It All Together}
+        Using everything from the previous exercises, specify a complete Bill of Materials for one vineyard sensor node. \textbf{Justify every choice with a datasheet reference.}
+        
+        \vspace{0.2cm}
+        \begin{center}
+        \begin{tabular}{lll}
+            \toprule
+            \textbf{Subsystem} & \textbf{Your Component Choice} & \textbf{Datasheet Justification} \\
+            \midrule
+            Sensor & ? & ? \\
+            ADC & ? & ? \\
+            MCU & ? & ? \\
+            Radio & ? & ? \\
+            Regulator & ? & ? \\
+            Battery & ? & ? \\
+            \bottomrule
+        \end{tabular}
+        \end{center}
+        
+        \vspace{0.2cm}
+        \textbf{Then:} Calculate complete system power budget (sleep + active + TX) and estimate battery life.
+    \end{block}
+    
+    {\footnotesize \textit{AI task:} Ask AI to suggest a BOM. Then verify EVERY spec it gives you against real datasheets. How many errors does it make?}
+\end{frame}
+
+\begin{frame}{Design Problem 2: Pump Condition Monitoring -- Platform Decision}
+    \begin{block}{Scenario: Factory Has Budget for ONE Platform}
+        A factory needs vibration monitoring on 20 pumps. Two vendors are pitching:
+        
+        \vspace{0.2cm}
+        \begin{columns}
+            \column{0.5\textwidth}
+            \textbf{Vendor A: ``Edge AI Solution''}
+            \begin{itemize}
+                \item NVIDIA Jetson Nano per pump
+                \item Runs TensorFlow model
+                \item ``Cloud-free, AI-powered''
+                \item \$150/node + \$500 setup
+            \end{itemize}
+            
+            \column{0.5\textwidth}
+            \textbf{Vendor B: ``Traditional DSP''}
+            \begin{itemize}
+                \item STM32H7 (Cortex-M7 + FPU)
+                \item FFT-based spectral analysis
+                \item Ethernet to SCADA
+                \item \$45/node + \$200 setup
+            \end{itemize}
+        \end{columns}
+        
+        \vspace{0.2cm}
+        \textbf{Alert requirement:} detect anomaly within 100ms.
+    \end{block}
+    
+    \textbf{What do you recommend?} Consider: power, boot time, latency guarantee, total cost, maintenance, and whether the ``AI'' actually adds value here.
+    
+    {\footnotesize \textit{Verify:} Jetson Nano DS (power, boot time), STM32H7 DS (RTOS latency), vibration analysis literature (are bearing faults well-characterized?).}
+\end{frame}
+
+%==============================================================================
+\section{AI vs Engineering Reality}
+%==============================================================================
+
+\begin{frame}{Experiment: What Happens When You Ask AI to Design Your System?}
+    \textbf{We asked ChatGPT to design a LoRaWAN soil moisture sensor for a vineyard. Here is a summary of its response:}
+    
+    \vspace{0.2cm}
+    \begin{block}{AI Response (paraphrased):}
+        \textit{``Use an ESP32 with a capacitive soil moisture sensor. Connect via LoRaWAN using the built-in LoRa radio. Power with a 3.7V 18650 lithium battery and a small solar panel. Set sampling interval to 10 minutes. Use deep sleep mode for power savings. Expected battery life: several months to a year.''}
+    \end{block}
+    
+    \vspace{0.3cm}
+    \textbf{Sounds reasonable, right?}
+    
+    \vspace{0.3cm}
+    \begin{alertblock}{Your task: Find the errors}
+        Look up the \textbf{real datasheets} for every component the AI mentioned. How many factual errors can you find? Fill in the table on the next slide.
+    \end{alertblock}
+\end{frame}
+
+\begin{frame}{AI Fact-Check Worksheet}
+    \textbf{For each AI claim, verify against the actual datasheet:}
+    
+    \vspace{0.3cm}
+    \begin{center}
+    \begin{tabular}{p{3cm}p{3.5cm}p{2.5cm}p{2.5cm}}
+        \toprule
+        \textbf{AI Claim} & \textbf{What datasheet says} & \textbf{Source} & \textbf{Correct?} \\
+        \midrule
+        ``ESP32 deep sleep is very low power'' & ? $\mu$A & ESP32 DS, Table ? & Y / N \\
+        \addlinespace
+        ``Built-in LoRa radio'' & ? & ESP32 DS, Sec ? & Y / N \\
+        \addlinespace
+        ``18650 battery for 5yr'' & Self-discharge: ?\%/month & Battery DS & Y / N \\
+        \addlinespace
+        ``Several months battery'' & Your calculation: ? & Your work & Y / N \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    
+    \vspace{0.3cm}
+    \begin{exampleblock}{Reflection Questions}
+        \begin{enumerate}
+            \item How many errors did the AI make in one paragraph?
+            \item Would a non-engineer notice these errors?
+            \item What would happen if you built a product based on this AI advice?
+        \end{enumerate}
+    \end{exampleblock}
+\end{frame}
+
+\begin{frame}{The AI-Native Engineering Rule}
+    \begin{columns}
+        \column{0.5\textwidth}
+        \textbf{AI is useful for:}
+        \begin{itemize}
+            \item Brainstorming component options
+            \item Generating code scaffolding
+            \item Explaining concepts you don't know
+            \item Finding datasheet section names
+            \item Writing documentation drafts
+        \end{itemize}
+        
+        \vspace{0.3cm}
+        \textbf{AI is dangerous for:}
+        \begin{itemize}
+            \item Specific numeric specs
+            \item Component compatibility
+            \item Power budget calculations
+            \item Regulatory compliance
+            \item ``Is this design correct?''
+        \end{itemize}
+        
+        \column{0.5\textwidth}
+        \begin{alertblock}{The Rule}
+            \textbf{Every AI-generated claim must be verified against a primary source.}
+            
+            \vspace{0.2cm}
+            Primary sources:
+            \begin{enumerate}
+                \item Manufacturer datasheet
+                \item Peer-reviewed papers
+                \item Official protocol specs
+                \item Your own measurements
+            \end{enumerate}
+        \end{alertblock}
+        
+        \vspace{0.2cm}
+        \begin{exampleblock}{The Test}
+            If you can't cite a datasheet page number for a design parameter, you haven't done engineering---you've done \textbf{guessing with extra steps}.
+        \end{exampleblock}
+    \end{columns}
+\end{frame}
+
+%==============================================================================
+\section{Useful Datasheets}
+%==============================================================================
+
+\begin{frame}{Datasheet Quick Reference}
+    \textbf{You will need these datasheets for the exercises. All are freely available online:}
+    
+    \vspace{0.3cm}
+    \footnotesize
+    \begin{center}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Component} & \textbf{Document} & \textbf{Key Tables/Sections} \\
+        \midrule
+        STM32L072 (MCU) & DS10182 Rev6 & T22 (Run), T24 (Stop), T28 (Wake) \\
+        STM32F411 (MCU) & DS10314 & T25 (current/MHz) \\
+        STM32H7 (MCU) & DS12110 & Power, FPU performance \\
+        LM35 (Temp sensor) & SNIS159 & Output specs, accuracy \\
+        DS18B20 (1-Wire temp) & DS18B20 DS & Accuracy, cable length \\
+        SX1276 / RFM95W (LoRa) & SX1276 DS & T10 (TX current), T2 (sensitivity) \\
+        SIM7000 (Cellular) & HW Design v1.04 & Current consumption table \\
+        PMS5003 (PM2.5) & PMS5003 DS & Laser lifetime, power \\
+        SCD41 (CO2) & SCD4x DS & Drift spec, measurement current \\
+        ESP32 & ESP32 DS & T8 (sleep modes) \\
+        Raspberry Pi Zero 2W & --- & Community benchmarks (jeffgeerling.com) \\
+        NVIDIA Jetson Nano & DS-09137 & Power modes, boot time \\
+        \bottomrule
+    \end{tabular}
+    \end{center}
+    \normalsize
+\end{frame}
+
+\begin{frame}{Questions?}
+    \begin{center}
+        \Huge Questions?
+        
+        \vspace{1cm}
+        \normalsize
+        \textbf{Eduardo Baena}\\
+        \texttt{e.baena@northeastern.edu}
+        
+        \vspace{0.5cm}
+        \textit{EECE5155: Wireless Sensor Networks and the Internet of Things}\\
+        Spring 2026
+        
+        \vspace{0.5cm}
+        \textbf{Remember:} Datasheet first, calculate second, decide third.
+    \end{center}
+\end{frame}
+
+\end{document}
