@@ -1,83 +1,46 @@
-# Hands-On 3: IoT Dataset Analysis
+# IoT Dataset Analysis — Student Submission
 
-**AI writes the code. You interpret the results.**
+**EECE5155 Hands-On Session 3**
 
-## Rules
+## Your Task
 
-1. Use **any AI tool** (ChatGPT, Copilot, etc.) to generate code in the code cells
-2. **You** write the interpretation in the markdown cells marked ✍️
-3. **Grading:** 40% code runs correctly · 60% interpretation quality
-4. AI-generated interpretations = 0 on that section
+Analyze an IoT dataset and submit a report with three exercises:
 
-## Prerequisites
+1. **Data Quality Audit** — identify dead sensors, outliers, data quality issues
+2. **Sensor Comparison** — validate readings, compute correlations, assess accuracy
+3. **Anomaly Detection** — compare fixed threshold vs z-score methods
 
-- **Python 3** with `pandas`, `matplotlib`, `jupyter`
-- No hardware or cloud accounts needed
+## How to Submit
 
-## Setup
+1. **Use the template:** `dataset_report_template.tex`
+2. **Fill in your results:** Replace `YOUR_TEXT` placeholders with your analysis
+3. **Include your plots:** Save as PNG and update image paths in the template
+4. **Submit your notebook:** Include your Jupyter notebook with code and interpretations
 
-```bash
-pip install pandas matplotlib jupyter
+## Grading
 
-mkdir -p ~/iot-dataset-lab && cd ~/iot-dataset-lab
+- **40%** — Code works and produces results
+- **60%** — Interpretation quality (why did you see what you saw?)
 
-curl -L -o data.txt.gz \
-  "https://db.csail.mit.edu/labdata/data.txt.gz"
-gunzip data.txt.gz
-```
+## Choose Your Dataset
 
-**Alt download** if the server is slow: [IoT-Timeseries-Datasets (GitHub)](https://github.com/chrico03/IoT-Timeseries-Datasets)
+Pick ONE:
+- **Google Smart Buildings** (2024) — https://www.tensorflow.org/datasets/catalog/smart_buildings
+- **NAB Benchmark** (labeled anomalies) — https://github.com/numenta/NAB
+- **ASHRAE Energy** — building HVAC patterns
+- **UCI Air Quality** — multivariate sensor data
+- **Kaggle Smart Home** — home automation
 
-## Start the notebook
+## Resources
 
-```bash
-cd ~/iot-dataset-lab
-cp /path/to/dataset_starter.ipynb .
-jupyter notebook dataset_starter.ipynb
-```
+- **Demo notebook (Colab):** https://shorturl.at/7lvsf
+- **Intel Lab dataset:** https://db.csail.mit.edu/labdata/labdata.html
+- **Starter notebook:** `dataset_starter.ipynb`
 
-## Exercises
+## Files in This Folder
 
-### Exercise 1: Data Quality Audit (20 min)
-
-Use AI to write code that answers:
-- How many readings per sensor? Which died early?
-- Missing values per sensor: random or clustered?
-- Temperature distribution: what do the tails look like?
-- Temperature over time for motes 1, 2, 15, 49
-
-**Then write your interpretation:** Why did sensors die? What caused the outliers? When did Mote 49 stop?
-
-### Exercise 2: Compare Sensors (20 min)
-
-Use AI to write code that answers:
-- Resample 4 sensors to 5-min averages and plot together
-- Compute the correlation matrix
-- Compute the max spread at any timestamp
-
-**Then write your interpretation:** Why do some sensors diverge? Can you achieve ±0.5°C accuracy? How would you verify?
-
-### Exercise 3: Anomaly Detection (15 min)
-
-Use AI to build two detectors on Mote 1:
-- Fixed thresholds: flag outside [15, 35]°C
-- Rolling z-score: 1-hour window, |z| > 3
-
-**Then write your interpretation:** Why do the methods find different anomalies? Which would you use for safety vs. drift detection?
-
-## Deliverables
-
-1. **LaTeX report** (PDF) — use `dataset_report_template.tex`, fill in all `YOUR_TEXT` placeholders
-2. **Three plots** embedded in the report: `data_quality.png`, `sensor_comparison.png`, `anomalies.png`
-3. **Jupyter notebook** (.ipynb) with your code
-4. **Submit all on Canvas**
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| Dataset download fails | Use the GitHub mirror link above |
-| Pandas can't parse the file | Use `sep=r'\s+'` and `na_values=['']` |
-| Timestamps show NaT | Use `errors='coerce'` in `pd.to_datetime()` |
-| Plots too slow / cluttered | Resample to 5-min or 15-min intervals |
-| Rolling z-score gives NaN at start | Expected for the first hour; use `dropna()` |
+- `dataset_report_template.tex` — LaTeX template for your report
+- `dataset_starter.ipynb` — Jupyter notebook starter (optional)
+- `demo_intel_lab_analysis.ipynb` — Full demo with explanations
+- `demo_interactive.ipynb` — Interactive demo for class
+- `demo_plots_only.ipynb` — Just the code, no explanations
