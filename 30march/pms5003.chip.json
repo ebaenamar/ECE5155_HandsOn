@@ -1,0 +1,11 @@
+{
+  "name": "PMS5003",
+  "author": "EECE 5155",
+  "description": "Plantower PMS5003 PM2.5 Air Quality Sensor",
+  "keywords": ["sensor", "air quality", "pm2.5", "uart", "serial"],
+  "pins": ["VCC", "GND", "TX", "RX", "SET", "RST"],
+  "size": {
+    "width": 300,
+    "height": 150
+  }
+}
